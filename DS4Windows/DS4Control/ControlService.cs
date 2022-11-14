@@ -2705,6 +2705,7 @@ namespace DS4Windows
 
         private void CompareAndSendChangesToOSC(int index, DS4State oldState, DS4State newState)
         {
+            
             if(oldState.Square != newState.Square)
             {
                 oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/square", newState.Square==true?1:0));
@@ -2805,12 +2806,54 @@ namespace DS4Windows
             {
                 oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/ps", newState.PS == true ? 1 : 0));
             }
-            
-            /*if (oldState.Battery != newState.Battery)
+
+            if (oldState.TouchButton != newState.TouchButton)
             {
-                AppLogger.LogToGui("BATTERY " + oldState.Battery + " : " + newState.Battery, false);
-                oscSender.Send(new SharpOSC.OscMessage("/ds4windows/monitor/" + index + "/battery", Convert.ToInt32(newState.Battery)));
-            }*/
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/touchbutton", newState.TouchButton == true ? 1 : 0));
+            }
+
+            if (oldState.TrackPadTouch0.IsActive != newState.TrackPadTouch0.IsActive)
+            {
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/trackpad0/active", newState.TrackPadTouch0.IsActive == true ? 1 : 0));
+            }
+
+            if (oldState.TrackPadTouch1.IsActive != newState.TrackPadTouch1.IsActive)
+            {
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/trackpad1/active", newState.TrackPadTouch1.IsActive == true ? 1 : 0));
+            }
+
+            if(oldState.TrackPadTouch0.X != newState.TrackPadTouch0.X)
+            {
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/trackpad0/x", Convert.ToInt32(newState.TrackPadTouch0.X)));
+            }
+
+            if(oldState.TrackPadTouch0.Y != newState.TrackPadTouch0.Y)
+            {
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/trackpad0/y", Convert.ToInt32(newState.TrackPadTouch0.Y)));
+            }
+
+            if (oldState.TrackPadTouch1.X != newState.TrackPadTouch1.X)
+            {
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/trackpad1/x", Convert.ToInt32(newState.TrackPadTouch1.X)));
+            }
+
+            if (oldState.TrackPadTouch1.Y != newState.TrackPadTouch1.Y)
+            {
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/trackpad1/y", Convert.ToInt32(newState.TrackPadTouch1.Y)));
+            }
+
+            //High volume OSC sending. Passively waiting 15 state frames to send data.
+            if (isSendingSixaxisToOSC() && newState.FrameCounter % 15 == 0)
+            {
+                
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/sixaxis/accelX", (newState.Motion.accelX)));
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/sixaxis/accelY", (newState.Motion.accelY)));
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/sixaxis/accelZ", (newState.Motion.accelZ)));
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/sixaxis/pitch", (newState.Motion.gyroPitch)));
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/sixaxis/roll", (newState.Motion.gyroRoll)));
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + index + "/sixaxis/yaw", (newState.Motion.gyroYaw)));
+            }
+            
         }
 
         private void LagFlashWarning(DS4Device device, int ind, bool on)
@@ -3015,6 +3058,11 @@ namespace DS4Windows
                 heavyBoosted = 255;
 
             device.setRumble((byte)lightBoosted, (byte)heavyBoosted);
+            if (isUsingOSCSender())
+            {
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + deviceNum + "/rumble/light", Convert.ToInt32(lightMotor)));
+                oscSender.Send(new OscMessage("/ds4windows/monitor/" + deviceNum + "/rumble/heavy", Convert.ToInt32(heavyMotor)));
+            }
         }
 
         public DS4State getDS4State(int ind)

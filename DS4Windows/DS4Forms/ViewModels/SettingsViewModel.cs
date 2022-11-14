@@ -209,6 +209,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             }
         }
         public event EventHandler UseOSCSenderChanged;
+        public bool OSCSendSixaxis { get => DS4Windows.Global.isSendingSixaxisToOSC(); set => DS4Windows.Global.setOSCSendSixaxis(value); }
         public int OscSendPort { get => DS4Windows.Global.getOSCSenderPortNum(); set => DS4Windows.Global.setOSCSenderPort(value); }
 
         public string OscSenderAddress

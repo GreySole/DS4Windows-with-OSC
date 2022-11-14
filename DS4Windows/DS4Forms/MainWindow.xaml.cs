@@ -1287,6 +1287,7 @@ Suspend support not enabled.", true);
         private void UseOscServerCk_Click(object sender, RoutedEventArgs e)
         {
             bool status = useOscServerCk.IsChecked == true;
+            
             App.rootHub.ChangeOSCListenerStatus(status);
         }
 

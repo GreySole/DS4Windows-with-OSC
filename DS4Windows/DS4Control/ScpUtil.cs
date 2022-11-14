@@ -1530,6 +1530,16 @@ namespace DS4Windows
             m_Config.useOSCSend = state;
         }
 
+        public static bool isSendingSixaxisToOSC()
+        {
+            return m_Config.oscSendSixaxis;
+        }
+
+        public static void setOSCSendSixaxis(bool state)
+        {
+            m_Config.oscSendSixaxis = state;
+        }
+
         public static int getOSCSenderPortNum()
         {
             return m_Config.oscSendPort;
@@ -3262,6 +3272,7 @@ namespace DS4Windows
         public int oscServPort = 9000;
         public bool useOSCSend = false;
         public int oscSendPort = 9001;
+        public bool oscSendSixaxis = false;
         public string oscSendAddress = "127.0.0.1";
         public bool useUDPServ = false;
         public int udpServPort = 26760;
@@ -6947,6 +6958,8 @@ namespace DS4Windows
 
                     try { Item = m_Xdoc.SelectSingleNode("/Profile/UseOSCSender"); Boolean.TryParse(Item.InnerText, out useOSCSend); }
                     catch { missingSetting = true; }
+                    try { Item = m_Xdoc.SelectSingleNode("/Profile/OSCSendSixaxis"); Boolean.TryParse(Item.InnerText, out oscSendSixaxis); }
+                    catch { missingSetting = true; }
                     try { Item = m_Xdoc.SelectSingleNode("/Profile/OSCSenderPort"); int temp; int.TryParse(Item.InnerText, out temp); oscSendPort = Math.Min(Math.Max(temp, 1024), 65535); }
                     catch { missingSetting = true; }
                     try { Item = m_Xdoc.SelectSingleNode("/Profile/OSCSenderAddress"); oscSendAddress = Item.InnerText; }
@@ -7191,6 +7204,7 @@ namespace DS4Windows
             XmlNode xmlOSCServPort = m_Xdoc.CreateNode(XmlNodeType.Element, "OSCServerPort", null); xmlOSCServPort.InnerText = oscServPort.ToString(); rootElement.AppendChild(xmlOSCServPort);
 
             XmlNode xmlUseOSCSend = m_Xdoc.CreateNode(XmlNodeType.Element, "UseOSCSender", null); xmlUseOSCSend.InnerText = useOSCSend.ToString(); rootElement.AppendChild(xmlUseOSCSend);
+            XmlNode xmlOSCSendSixaxis = m_Xdoc.CreateNode(XmlNodeType.Element, "OSCSendSixaxis", null); xmlOSCSendSixaxis.InnerText = oscSendSixaxis.ToString(); rootElement.AppendChild(xmlOSCSendSixaxis);
             XmlNode xmlOSCSendPort = m_Xdoc.CreateNode(XmlNodeType.Element, "OSCSenderPort", null); xmlOSCSendPort.InnerText = oscSendPort.ToString(); rootElement.AppendChild(xmlOSCSendPort);
             XmlNode xmlOSCSendAddress = m_Xdoc.CreateNode(XmlNodeType.Element, "OSCSenderAddress", null); xmlOSCSendAddress.InnerText = oscSendAddress; rootElement.AppendChild(xmlOSCSendAddress);
 
