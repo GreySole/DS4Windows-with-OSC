@@ -166,14 +166,17 @@ namespace DS4Windows
         public const double DEFAULT_BETA = 0.7;
         public const string DEFAULT_SMOOTH_TECHNIQUE = "one-euro";
         public const double DEFAULT_MIN_THRESHOLD = 1.0;
+        public const bool JITTER_COMPENSATION_DEFAULT = true;
 
         public bool enableSmoothing = false;
         public double smoothingWeight = 0.5;
         public SmoothingMethod smoothingMethod;
 
+
         public double minCutoff = DEFAULT_MINCUTOFF;
         public double beta = DEFAULT_BETA;
         public double minThreshold = DEFAULT_MIN_THRESHOLD;
+        public bool jitterCompensation = JITTER_COMPENSATION_DEFAULT;
 
         public delegate void GyroMouseInfoEventHandler(GyroMouseInfo sender, EventArgs args);
 
@@ -201,6 +204,16 @@ namespace DS4Windows
         }
         public event GyroMouseInfoEventHandler BetaChanged;
 
+        public bool JitterCompensation
+        {
+            get => jitterCompensation;
+            set
+            {
+                if (jitterCompensation == value) return;
+                jitterCompensation = value;
+            }
+        }
+
         public void Reset()
         {
             minCutoff = DEFAULT_MINCUTOFF;
@@ -209,6 +222,7 @@ namespace DS4Windows
             smoothingMethod = SmoothingMethod.None;
             smoothingWeight = 0.5;
             minThreshold = DEFAULT_MIN_THRESHOLD;
+            jitterCompensation = JITTER_COMPENSATION_DEFAULT;
         }
 
         public void ResetSmoothing()
@@ -225,19 +239,26 @@ namespace DS4Windows
         public void DetermineSmoothMethod(string identier)
         {
             ResetSmoothingMethods();
+            smoothingMethod = SmoothingMethodParse(identier);
+        }
 
-            switch (identier)
+        public static SmoothingMethod SmoothingMethodParse(string identifier)
+        {
+            SmoothingMethod result = SmoothingMethod.None;
+            switch (identifier)
             {
                 case "weighted-average":
-                    smoothingMethod = SmoothingMethod.WeightedAverage;
+                    result = SmoothingMethod.WeightedAverage;
                     break;
                 case "one-euro":
-                    smoothingMethod = SmoothingMethod.OneEuro;
+                    result = SmoothingMethod.OneEuro;
                     break;
                 default:
-                    smoothingMethod = SmoothingMethod.None;
+                    result = SmoothingMethod.None;
                     break;
             }
+
+            return result;
         }
 
         public string SmoothMethodIdentifier()
@@ -304,6 +325,7 @@ namespace DS4Windows
         public const string DEFAULT_SMOOTH_TECHNIQUE = "one-euro";
         public const OutputStick DEFAULT_OUTPUT_STICK = OutputStick.RightStick;
         public const OutputStickAxes DEFAULT_OUTPUT_STICK_AXES = OutputStickAxes.XY;
+        public const double SMOOTHING_WEIGHT_DEFAULT = 0.5;
 
         public int deadZone;
         public int maxZone;
@@ -315,7 +337,7 @@ namespace DS4Windows
         // Flags representing invert axis choices
         public uint inverted;
         public bool useSmoothing;
-        public double smoothWeight;
+        public double smoothWeight = SMOOTHING_WEIGHT_DEFAULT;
         public SmoothingMethod smoothingMethod;
         public double minCutoff = DEFAULT_MINCUTOFF;
         public double beta = DEFAULT_BETA;
@@ -363,7 +385,7 @@ namespace DS4Windows
             beta = DEFAULT_BETA;
             smoothingMethod = SmoothingMethod.None;
             useSmoothing = false;
-            smoothWeight = 0.5;
+            smoothWeight = SMOOTHING_WEIGHT_DEFAULT;
         }
 
         public void ResetSmoothing()
@@ -380,19 +402,26 @@ namespace DS4Windows
         public void DetermineSmoothMethod(string identier)
         {
             ResetSmoothingMethods();
+            smoothingMethod = SmoothingMethodParse(identier);
+        }
 
-            switch (identier)
+        public static SmoothingMethod SmoothingMethodParse(string identifier)
+        {
+            SmoothingMethod result = SmoothingMethod.None;
+            switch (identifier)
             {
                 case "weighted-average":
-                    smoothingMethod = SmoothingMethod.WeightedAverage;
+                    result = SmoothingMethod.WeightedAverage;
                     break;
                 case "one-euro":
-                    smoothingMethod = SmoothingMethod.OneEuro;
+                    result = SmoothingMethod.OneEuro;
                     break;
                 default:
-                    smoothingMethod = SmoothingMethod.None;
+                    result = SmoothingMethod.None;
                     break;
             }
+
+            return result;
         }
 
         public string SmoothMethodIdentifier()

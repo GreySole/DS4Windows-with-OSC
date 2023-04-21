@@ -167,46 +167,11 @@ namespace DS4Windows
             //return meta;
         }
 
-        private object busThrLck = new object();
-        private bool busThrRunning = false;
-        private Queue<Action> busEvtQueue = new Queue<Action>();
-        private object busEvtQueueLock = new object();
         public ControlService(DS4WinWPF.ArgumentParser cmdParser)
         {
             this.cmdParser = cmdParser;
 
             Crc32Algorithm.InitializeTable(DS4Device.DefaultPolynomial);
-            InitOutputKBMHandler();
-
-            // Cause thread affinity to not be tied to main GUI thread
-            tempBusThread = new Thread(() =>
-            {
-                //_udpServer = new UdpServer(GetPadDetailForIdx);
-                busThrRunning = true;
-
-                while (busThrRunning)
-                {
-                    lock (busEvtQueueLock)
-                    {
-                        Action tempAct = null;
-                        for (int actInd = 0, actLen = busEvtQueue.Count; actInd < actLen; actInd++)
-                        {
-                            tempAct = busEvtQueue.Dequeue();
-                            tempAct.Invoke();
-                        }
-                    }
-
-                    lock (busThrLck)
-                        Monitor.Wait(busThrLck);
-                }
-            });
-            tempBusThread.Priority = ThreadPriority.Normal;
-            tempBusThread.IsBackground = true;
-            tempBusThread.Start();
-            //while (_udpServer == null)
-            //{
-            //    Thread.SpinWait(500);
-            //}
 
             eventDispatchThread = new Thread(() =>
             {
@@ -275,6 +240,12 @@ namespace DS4Windows
             oscCallback = delegate (OscPacket packet)
             {
                 var messageReceived = (OscMessage)packet;
+
+                // If typecase fails, exit
+                if (messageReceived == null)
+                {
+                    return;
+                }
 
                 var command = messageReceived.Address.Split("/");
                 //AppLogger.LogToGui("I HEARD SOMETHING " + messageReceived.Address, false);
@@ -489,6 +460,7 @@ namespace DS4Windows
             bool result = false;
             switch (metaInfo.inputDevType)
             {
+                case InputDevices.InputDeviceType.DS3:
                 case InputDevices.InputDeviceType.DS4:
                     result = deviceOptions.DS4DeviceOpts.Enabled;
                     break;
@@ -500,6 +472,7 @@ namespace DS4Windows
                     break;
                 case InputDevices.InputDeviceType.JoyConL:
                 case InputDevices.InputDeviceType.JoyConR:
+                case InputDevices.InputDeviceType.JoyConGrip:
                     result = deviceOptions.JoyConDeviceOpts.Enabled;
                     break;
                 default:
@@ -518,8 +491,6 @@ namespace DS4Windows
         {
             outputslotMan.ShutDown();
             OutputSlotPersist.WriteConfig(outputslotMan);
-
-            outputKBMHandler.Disconnect();
 
             eventDispatcher.InvokeShutdown();
             eventDispatcher = null;
@@ -673,6 +644,19 @@ namespace DS4Windows
             List<DS4Controls> result = new List<DS4Controls>();
             switch (dev.DeviceType)
             {
+                case InputDevices.InputDeviceType.DualSense:
+                    {
+                        InputDevices.DualSenseDevice tempDev = dev as InputDevices.DualSenseDevice;
+                        if (tempDev != null &&
+                            tempDev.SubType == InputDevices.DualSenseDevice.DeviceSubType.DSEdge)
+                        {
+                            // Added extra DualSense Edge buttons as extra in the mapper.
+                            // Keeps from checking non-existent buttons on other device types.
+                            result.AddRange(new DS4Controls[] { DS4Controls.FnL, DS4Controls.FnR, DS4Controls.BLP, DS4Controls.BRP });
+                        }
+                    }
+
+                    break;
                 case InputDevices.InputDeviceType.JoyConL:
                 case InputDevices.InputDeviceType.JoyConR:
                     result.AddRange(new DS4Controls[] { DS4Controls.Capture, DS4Controls.SideL, DS4Controls.SideR });
@@ -697,13 +681,10 @@ namespace DS4Windows
 
         private void TestQueueBus(Action temp)
         {
-            lock (busEvtQueueLock)
+            eventDispatcher.BeginInvoke(() =>
             {
-                busEvtQueue.Enqueue(temp);
-            }
-
-            lock (busThrLck)
-                Monitor.Pulse(busThrLck);
+                temp?.Invoke();
+            });
         }
 
         public void ChangeUDPStatus(bool state, bool openPort=true)
@@ -1443,8 +1424,20 @@ namespace DS4Windows
             if (vigemTestClient != null)
             //if (x360Bus.Open() && x360Bus.Start())
             {
+                // Initialize output KBM handler at start of ControlService
+                InitOutputKBMHandler();
+
                 if (showlog)
                     LogDebug(DS4WinWPF.Properties.Resources.Starting);
+
+                Thread.Sleep(2000);
+
+                bool runningAsAdmin = Global.IsAdministrator();
+                if (Global.outputKBMHandler.GetIdentifier() != FakerInputHandler.IDENTIFIER && !runningAsAdmin)
+                {
+                    string helpURL = @"https://docs.ds4windows.app/troubleshooting/kb-mouse-issues/#windows-not-responding-to-ds4ws-kb-m-commands-in-some-situations";
+                    LogDebug($"Some applications may block controller inputs. (Windows UAC Conflictions). Please go to {helpURL} for more information and workarounds.");
+                }
 
                 LogDebug($"Using output KB+M handler: {Global.outputKBMHandler.GetFullDisplayName()}");
                 LogDebug($"Connection to ViGEmBus {Global.vigembusVersion} established");
@@ -1519,8 +1512,14 @@ namespace DS4Windows
                                     tempPrimaryJoyDev.JointState = currentJoyDev.JointState;
 
                                     InputDevices.JoyConDevice parentJoy = tempPrimaryJoyDev;
-                                    tempPrimaryJoyDev.Removal += (sender, args) => { currentJoyDev.JointDevice = null; };
-                                    currentJoyDev.Removal += (sender, args) => { parentJoy.JointDevice = null; };
+                                    tempPrimaryJoyDev.Removal += (sender, args) =>
+                                    {
+                                        currentJoyDev.JointDevice = null;
+                                    };
+                                    currentJoyDev.Removal += (sender, args) =>
+                                    {
+                                        parentJoy.JointDevice = null;
+                                    };
 
                                     tempPrimaryJoyDev = null;
                                 }
@@ -1756,6 +1755,10 @@ namespace DS4Windows
                 }
 
                 StopViGEm();
+
+                // Disconnect from KBM system when stopping ControlService
+                LogDebug($"Closing connection to output handler {outputKBMHandler.GetDisplayName()}");
+                outputKBMHandler.Disconnect();
                 inServiceTask = false;
                 activeControllers = 0;
             }
@@ -1844,8 +1847,14 @@ namespace DS4Windows
                                         tempSecondaryJoyDev.JointState = currentJoyDev.JointState;
 
                                         InputDevices.JoyConDevice secondaryJoy = tempSecondaryJoyDev;
-                                        secondaryJoy.Removal += (sender, args) => { currentJoyDev.JointDevice = null; };
-                                        currentJoyDev.Removal += (sender, args) => { secondaryJoy.JointDevice = null; };
+                                        secondaryJoy.Removal += (sender, args) =>
+                                        {
+                                            currentJoyDev.JointDevice = null;
+                                        };
+                                        currentJoyDev.Removal += (sender, args) =>
+                                        {
+                                            secondaryJoy.JointDevice = null;
+                                        };
 
                                         tempSecondaryJoyDev = null;
                                         tempPrimaryJoyDev = null;
@@ -1860,8 +1869,14 @@ namespace DS4Windows
                                         tempPrimaryJoyDev.JointState = currentJoyDev.JointState;
 
                                         InputDevices.JoyConDevice parentJoy = tempPrimaryJoyDev;
-                                        tempPrimaryJoyDev.Removal += (sender, args) => { currentJoyDev.JointDevice = null; };
-                                        currentJoyDev.Removal += (sender, args) => { parentJoy.JointDevice = null; };
+                                        tempPrimaryJoyDev.Removal += (sender, args) =>
+                                        {
+                                            currentJoyDev.JointDevice = null;
+                                        };
+                                        currentJoyDev.Removal += (sender, args) =>
+                                        {
+                                            parentJoy.JointDevice = null;
+                                        };
 
                                         tempPrimaryJoyDev = null;
                                     }
@@ -2056,6 +2071,28 @@ namespace DS4Windows
             device.RumbleAutostopTime = getRumbleAutostopTime(ind);
             device.setRumble(0, 0);
             device.LightBarColor = Global.getMainColor(ind);
+
+            // DualSense specific profile settings
+            if (device is InputDevices.DualSenseDevice dualsense)
+            {
+                switch (DualSenseRumbleEmulationMode[ind])
+                {
+                    case InputDevices.DualSenseDevice.RumbleEmulationMode.Disabled:
+                        dualsense.UseRumble = false;
+                        dualsense.UseAccurateRumble = false;
+                        break;
+                    case InputDevices.DualSenseDevice.RumbleEmulationMode.Legacy:
+                        dualsense.UseRumble = true;
+                        dualsense.UseAccurateRumble = false;
+                        break;
+                    case InputDevices.DualSenseDevice.RumbleEmulationMode.Accurate:
+                    default:
+                        dualsense.UseRumble = true;
+                        dualsense.UseAccurateRumble = true;
+                        break;
+                }
+                dualsense.HapticPowerLevel = DualSenseHapticPowerLevel[ind];
+            }
 
             if (!startUp)
             {

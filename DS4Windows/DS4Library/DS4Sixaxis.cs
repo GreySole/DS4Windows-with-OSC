@@ -158,7 +158,7 @@ namespace DS4Windows
         public double GetWeight(int expectedMs)
         {
             if (expectedMs == 0) return 0;
-            return Math.Min(1.0, DurationMs / expectedMs);
+            return Math.Min(1.0, 1.0 * DurationMs / expectedMs);
         }
     }
 
@@ -309,6 +309,55 @@ namespace DS4Windows
                 int AccelX = (short)((ushort)(accel[1] << 8) | accel[0]);
                 int AccelY = (short)((ushort)(accel[3] << 8) | accel[2]);
                 int AccelZ = (short)((ushort)(accel[5] << 8) | accel[4]);
+
+                //Console.WriteLine("AccelZ: {0}", AccelZ);
+
+                if (calibrationDone)
+                    applyCalibs(ref currentYaw, ref currentPitch, ref currentRoll, ref AccelX, ref AccelY, ref AccelZ);
+
+                if (gyroAverageTimer.IsRunning)
+                {
+                    CalcSensorCamples(ref currentYaw, ref currentPitch, ref currentRoll, ref AccelX, ref AccelY, ref AccelZ);
+                }
+
+                currentYaw -= gyro_offset_x;
+                currentPitch -= gyro_offset_y;
+                currentRoll -= gyro_offset_z;
+
+                SixAxisEventArgs args = null;
+                if (AccelX != 0 || AccelY != 0 || AccelZ != 0)
+                {
+                    if (SixAccelMoved != null)
+                    {
+                        sPrev.copy(now);
+                        now.populate(currentYaw, currentPitch, currentRoll,
+                            AccelX, AccelY, AccelZ, elapsedDelta, sPrev);
+
+                        args = new SixAxisEventArgs(state.ReportTimeStamp, now);
+                        state.Motion = now;
+                        SixAccelMoved(this, args);
+                    }
+                }
+            }
+        }
+
+        public unsafe void handleDS3Sixaxis(byte* gyro, byte* accel, DS4State state,
+            double elapsedDelta)
+        {
+            unchecked
+            {
+                int currentYaw = (short)((ushort)(gyro[1] << 8) | gyro[0]);
+                int currentPitch = 0;
+                int currentRoll = 0;
+                int AccelX = (short)((ushort)(accel[1] << 8) | accel[0]);
+                int AccelZ = (short)((ushort)(accel[3] << 8) | accel[2]);
+                int AccelY = (short)((ushort)(accel[5] << 8) | accel[4]);
+
+                // DS3 to DS4
+                currentYaw = (int)((currentYaw - 512) * 90 * SixAxis.GYRO_RES_IN_DEG_SEC / 123.0f);
+                AccelX = (int)((512 - AccelX) * SixAxis.ACC_RES_PER_G / 113.0f);
+                AccelZ = (int)((512 - AccelZ) * SixAxis.ACC_RES_PER_G / 113.0f);
+                AccelY = (int)((512 - AccelY) * SixAxis.ACC_RES_PER_G / 113.0f);
 
                 //Console.WriteLine("AccelZ: {0}", AccelZ);
 

@@ -33,7 +33,11 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 if (tooltipText == temp) return;
                 tooltipText = temp;
                 //Trace.WriteLine(tooltipText);
-                TooltipTextChanged?.Invoke(this, EventArgs.Empty);
+                try
+                {
+                    TooltipTextChanged?.Invoke(this, EventArgs.Empty);
+                }
+                catch (InvalidOperationException) { }
             }
         }
         public event EventHandler TooltipTextChanged;
@@ -82,7 +86,7 @@ namespace DS4WinWPF.DS4Forms.ViewModels
             minimizeItem.Click += MinimizeMenuItem_Click;
             openProgramItem = new MenuItem() { Header = "Open Program Folder" };
             openProgramItem.Click += OpenProgramFolderItem_Click;
-            closeItem = new MenuItem() { Header = "Exit (Middle Mouse)" }; ;
+            closeItem = new MenuItem() { Header = "Exit" };
             closeItem.Click += ExitMenuItem_Click;
 
             PopulateControllerList();

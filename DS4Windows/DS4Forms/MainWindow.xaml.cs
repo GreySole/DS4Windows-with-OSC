@@ -131,16 +131,16 @@ namespace DS4WinWPF.DS4Forms
             }
 
             // Check display width bounds on startup
-            this.Width = Math.Clamp(Global.FormWidth, 0, Global.fullDesktopBounds.Width);
-            this.Height = Math.Clamp(Global.FormHeight, 0, Global.fullDesktopBounds.Height);
+            this.Width = Global.FormWidth = (int)Math.Clamp(Global.FormWidth, 0, Global.fullDesktopBounds.Width);
+            this.Height = Global.FormHeight = (int)Math.Clamp(Global.FormHeight, 0, Global.fullDesktopBounds.Height);
             // Keep possible example that does not rely on WpfScreenHelper
             //this.Width = Math.Clamp(Global.FormWidth, 0, SystemParameters.VirtualScreenWidth);
             //this.Height = Math.Clamp(Global.FormHeight, 0, SystemParameters.VirtualScreenHeight);
 
             // Check if requested window location exists on startup
             WindowStartupLocation = WindowStartupLocation.Manual;
-            Left = Math.Clamp(Global.FormLocationX, 0, Global.fullDesktopBounds.Right);
-            Top = Math.Clamp(Global.FormLocationY, 0, Global.fullDesktopBounds.Bottom);
+            Left = Global.FormLocationX = (int)Math.Clamp(Global.FormLocationX, 0, Global.fullDesktopBounds.Right);
+            Top = Global.FormLocationY = (int)Math.Clamp(Global.FormLocationY, 0, Global.fullDesktopBounds.Bottom);
             // Keep possible example that does not rely on WpfScreenHelper
             //Left = Math.Clamp(Global.FormLocationX, 0, SystemParameters.VirtualScreenLeft);
             //Top = Math.Clamp(Global.FormLocationY, 0, SystemParameters.VirtualScreenHeight);
@@ -310,9 +310,19 @@ namespace DS4WinWPF.DS4Forms
                 if (!IsActive && (Global.Notifications == 2 ||
                     (Global.Notifications == 1 && e.Warning)))
                 {
-                    notifyIcon.ShowNotification(TrayIconViewModel.ballonTitle,
-                        e.Data, !e.Warning ? H.NotifyIcon.Core.NotificationIcon.Info :
-                        H.NotifyIcon.Core.NotificationIcon.Warning);
+                    if (notifyIcon.IsCreated)
+                    {
+                        try
+                        {
+                            notifyIcon.ShowNotification(TrayIconViewModel.ballonTitle,
+                            e.Data, !e.Warning ? H.NotifyIcon.Core.NotificationIcon.Info :
+                            H.NotifyIcon.Core.NotificationIcon.Warning);
+                        }
+                        catch (System.InvalidOperationException)
+                        {
+                            // Ignore
+                        }
+                    }
                 }
             }));
         }
@@ -365,6 +375,7 @@ namespace DS4WinWPF.DS4Forms
                     managementEvWatcher.Start();
                 }
                 catch (ManagementException) { wmiConnected = false; }
+                catch (COMException) { wmiConnected = false; }
             }
 
             if (!wmiConnected)
@@ -470,13 +481,20 @@ Suspend support not enabled.", true);
                         if (wasrunning)
                         {
                             wasrunning = false;
-                            //Thread.Sleep(16000);
                             Dispatcher.Invoke(() =>
                             {
                                 StartStopBtn.IsEnabled = false;
                             });
 
-                            App.rootHub.Start();
+                            //Program.rootHub.LogDebug($"{Thread.CurrentThread.ManagedThreadId}");
+
+                            //Thread.Sleep(60000);
+                            //App.rootHub.Start();
+
+                            Task.Delay(120000).ContinueWith(t =>
+                            {
+                                App.rootHub.Start();
+                            });
                         }
                     }
 
@@ -1208,9 +1226,11 @@ Suspend support not enabled.", true);
             inHotPlug = true;
 
             bool loopHotplug = false;
+
             lock (hotplugCounterLock)
             {
                 loopHotplug = hotplugCounter > 0;
+                hotplugCounter = 0;
             }
 
             Program.rootHub.UpdateHidHiddenAttributes();
@@ -1218,10 +1238,11 @@ Suspend support not enabled.", true);
             {
                 Thread.Sleep(HOTPLUG_CHECK_DELAY);
                 Program.rootHub.HotPlug();
+
                 lock (hotplugCounterLock)
                 {
-                    hotplugCounter--;
                     loopHotplug = hotplugCounter > 0;
+                    hotplugCounter = 0;
                 }
             }
 
@@ -1358,7 +1379,6 @@ Suspend support not enabled.", true);
                     temp.WaitForExit();
                     Global.RefreshHidHideInfo();
                     Global.RefreshFakerInputInfo();
-                    Program.rootHub.RefreshOutputKBMHandler();
 
                     settingsWrapVM.DriverCheckRefresh();
                 }

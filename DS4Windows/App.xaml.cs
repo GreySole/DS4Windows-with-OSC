@@ -192,10 +192,10 @@ namespace DS4WinWPF
             }
 
             // Discover and load possible Lang assemblies
-            PrepareLangAssemblies();
+            //PrepareLangAssemblies();
             // Add hook to have .NET find the Lang assemblies. Loading will be performed
             // during MainWindow.InitializeComponent
-            AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
+            //AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
             // Have app use selected culture
             SetUICulture(DS4Windows.Global.UseLang);
             DS4Windows.AppThemeChoice themeChoice = DS4Windows.Global.UseCurrentTheme;
@@ -210,7 +210,7 @@ namespace DS4WinWPF
             window.Show();
 
             // Remove hook for custom assembly loading. Needed or app performance drops
-            AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
+            //AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
 
             // Set up hooks for IPC command calls
             HwndSource source = PresentationSource.FromVisual(window) as HwndSource;
@@ -220,11 +220,6 @@ namespace DS4WinWPF
 
             bool runningAsAdmin = DS4Windows.Global.IsAdministrator();
             rootHub.LogDebug($"Running as {(runningAsAdmin ? "Admin" : "User")}");
-            if (DS4Windows.Global.outputKBMHandler.GetIdentifier() != FakerInputHandler.IDENTIFIER && !runningAsAdmin)
-            {
-                string helpURL = @"https://docs.ds4windows.app/troubleshooting/kb-mouse-issues/#windows-not-responding-to-ds4ws-kb-m-commands-in-some-situations";
-                rootHub.LogDebug($"Some applications may block controller inputs. (Windows UAC Conflictions). Please go to {helpURL} for more information and workarounds.");
-            }
 
             if (DS4Windows.Global.hidHideInstalled)
             {

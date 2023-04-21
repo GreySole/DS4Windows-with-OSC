@@ -248,6 +248,7 @@ namespace DS4Windows.InputDevices
             conType = DetermineConnectionType(hDevice);
             optionsStore = nativeOptionsStore = new SwitchProControllerOptions(deviceType);
             SetupOptionsEvents();
+            Mac = hDevice.ReadSerial(SerialReportID);
 
             if (conType == ConnectionType.BT)
             {
@@ -691,7 +692,7 @@ namespace DS4Windows.InputDevices
             if (conType == ConnectionType.USB)
             {
                 RunUSBSetup();
-                Thread.Sleep(500);
+                //Thread.Sleep(500);
             }
 
             //Thread.Sleep(1000);
@@ -743,10 +744,10 @@ namespace DS4Windows.InputDevices
             EnableFastPollRate();
 
             // USB Connections seem to need a delay after switching input modes
-            if (conType == ConnectionType.USB)
-            {
-                Thread.Sleep(1000);
-            }
+            //if (conType == ConnectionType.USB)
+            //{
+            //    Thread.Sleep(1000);
+            //}
 
             SetInitRumble();
             //Thread.Sleep(1000);
@@ -775,6 +776,7 @@ namespace DS4Windows.InputDevices
             data[0] = 0x80; data[1] = 0x01;
             //result = hidDevice.WriteAsyncOutputReportViaInterrupt(data);
             result = hDevice.WriteOutputReportViaInterrupt(data, 0);
+            hDevice.fileStream.Flush();
             //Array.Clear(tmpReport, 0 , 64);
             //res = hidDevice.ReadWithFileStream(tmpReport);
             //Console.WriteLine("TEST BYTE: {0}", tmpReport[2]);
@@ -783,21 +785,24 @@ namespace DS4Windows.InputDevices
             //result = hidDevice.WriteOutputReportViaControl(data);
             //Thread.Sleep(2000);
             //Thread.Sleep(1000);
-            result = hDevice.WriteOutputReportViaControl(data);
+            result = hDevice.WriteOutputReportViaInterrupt(data, 0);
+            hDevice.fileStream.Flush();
 
             data[0] = 0x80; data[1] = 0x03; // 3Mbit baud rate
             //result = hidDevice.WriteAsyncOutputReportViaInterrupt(data);
-            result = hDevice.WriteOutputReportViaControl(data);
+            result = hDevice.WriteOutputReportViaInterrupt(data, 0);
             //Thread.Sleep(2000);
+            hDevice.fileStream.Flush();
 
             data[0] = 0x80; data[1] = 0x02; // Handshake at new baud rate
-            result = hDevice.WriteOutputReportViaControl(data);
+            result = hDevice.WriteOutputReportViaInterrupt(data, 0);
             //Thread.Sleep(1000);
             //result = hidDevice.WriteOutputReportViaInterrupt(command, 500);
             //Thread.Sleep(2000);
+            hDevice.fileStream.Flush();
 
             data[0] = 0x80; data[1] = 0x4; // Prevent HID timeout
-            result = hDevice.WriteOutputReportViaControl(data);
+            result = hDevice.WriteOutputReportViaInterrupt(data, 0);
             hDevice.fileStream.Flush();
             //result = hidDevice.WriteOutputReportViaInterrupt(command, 500);
         }

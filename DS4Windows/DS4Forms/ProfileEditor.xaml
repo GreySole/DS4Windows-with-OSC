@@ -141,6 +141,10 @@
                         <Button Content="Options" x:Name="optionsConBtn" Canvas.Left="291" Canvas.Top="63" Width="16" Height="24" Style="{StaticResource NoBGHoverBtn}" Click="HoverConBtn_Click" MouseEnter="ContBtn_MouseEnter" MouseLeave="ContBtn_MouseLeave" />
                         <Button Content="Guide" x:Name="guideConBtn" Canvas.Left="211" Canvas.Top="144" Width="20" Height="20" Style="{StaticResource NoBGHoverBtn}" Click="HoverConBtn_Click" MouseEnter="ContBtn_MouseEnter" MouseLeave="ContBtn_MouseLeave" />
                         <Button Content="Mute" x:Name="muteConBtn" Canvas.Left="0" Canvas.Top="0" Width="0" Height="0" Style="{StaticResource NoBGHoverBtn}" Visibility="Collapsed" />
+                        <Button Content="Function Left" x:Name="fnlConBtn" Canvas.Left="0" Canvas.Top="0" Width="0" Height="0" Style="{StaticResource NoBGHoverBtn}" Visibility="Collapsed" />
+                        <Button Content="Function Right" x:Name="fnrConBtn" Canvas.Left="0" Canvas.Top="0" Width="0" Height="0" Style="{StaticResource NoBGHoverBtn}" Visibility="Collapsed" />
+                        <Button Content="Bottom Left Paddle" x:Name="blpConBtn" Canvas.Left="0" Canvas.Top="0" Width="0" Height="0" Style="{StaticResource NoBGHoverBtn}" Visibility="Collapsed" />
+                        <Button Content="Bottom Right Paddle" x:Name="brpConBtn" Canvas.Left="0" Canvas.Top="0" Width="0" Height="0" Style="{StaticResource NoBGHoverBtn}" Visibility="Collapsed" />
 
                         <Button Content="Left Touch" x:Name="leftTouchConBtn" Canvas.Left="158" Canvas.Top="69" Width="37" Height="51" Style="{StaticResource NoBGHoverBtn}" Click="HoverConBtn_Click" MouseEnter="ContBtn_MouseEnter" MouseLeave="ContBtn_MouseLeave" />
                         <Button Content="Multi Touch" x:Name="multiTouchConBtn" Canvas.Left="199" Canvas.Top="74" Width="41" Height="45" Style="{StaticResource NoBGHoverBtn}" Click="HoverConBtn_Click" MouseEnter="ContBtn_MouseEnter" MouseLeave="ContBtn_MouseLeave" />
@@ -318,7 +322,7 @@
                                                         </DockPanel>
 
                                                         <Label Content="Vertical Scale:" Grid.Row="4" Grid.Column="0" />
-                                                        <xctk:DoubleUpDown d:IsHidden="True" Value="{Binding LSVerticalScale}" FormatString="F2" MinWidth="50" Grid.Row="4" Grid.Column="1" Maximum="2.0" Minimum="0.0" Increment="0.1"
+                                                        <xctk:DoubleUpDown d:IsHidden="True" Value="{Binding LSVerticalScale}" FormatString="F2" MinWidth="50" Grid.Row="4" Grid.Column="1" Maximum="4.0" Minimum="0.0" Increment="0.1"
                                                    Margin="{StaticResource spaceMargin}" />
 
                                                         <Label Content="Sensitivity:" Grid.Row="5" Grid.Column="0" />
@@ -607,7 +611,7 @@
                                                         </DockPanel>
 
                                                         <Label Content="Vertical Scale:" Grid.Row="4" Grid.Column="0" />
-                                                        <xctk:DoubleUpDown d:IsHidden="True" Value="{Binding RSVerticalScale}" FormatString="F2" MinWidth="50" Grid.Row="4" Grid.Column="1" Maximum="2.0" Minimum="0.0" Increment="0.1"
+                                                        <xctk:DoubleUpDown d:IsHidden="True" Value="{Binding RSVerticalScale}" FormatString="F2" MinWidth="50" Grid.Row="4" Grid.Column="1" Maximum="4.0" Minimum="0.0" Increment="0.1"
                                                    Margin="{StaticResource spaceMargin}" />
 
                                                         <Label Content="Sensitivity:" Grid.Row="5" Grid.Column="0" />
@@ -1189,7 +1193,7 @@
                                             Value="{Binding Rainbow,FallbackValue=5}" IsEnabled="{Binding RainbowExists}" />
                                     <Label Content="secs/cycle" Padding="0" Margin="8,0,0,0" VerticalContentAlignment="Center" />
                                     <StackPanel Margin="8,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding MaxSatRainbow,FallbackValue=100,StringFormat=Max Sat. {0:N2}%}" Margin="0,0,0,5" />
+                                        <TextBlock Text="{Binding MaxSatRainbow,FallbackValue=100,StringFormat=Max Light {0:N2}%}" Margin="0,0,0,5" />
                                         <Slider Value="{Binding MaxSatRainbow,FallbackValue=100}" Minimum="0" Maximum="100" Width="100" IsEnabled="{Binding RainbowExists}" />
                                     </StackPanel>
                                 </StackPanel>
@@ -1335,6 +1339,15 @@
                                                     <MenuItem Header="PS" IsCheckable="True" Click="TouchDisInvertMenuItem_Click" />
                                                     <MenuItem Header="Touchpad Click" IsCheckable="True" Click="TouchDisInvertMenuItem_Click" />
                                                     <MenuItem Header="Mute" IsCheckable="True" Click="TouchDisInvertMenuItem_Click" />
+                                                    <MenuItem Header="Side L" IsCheckable="True" Click="TouchDisInvertMenuItem_Click" />
+                                                    <MenuItem Header="Side R" IsCheckable="True" Click="TouchDisInvertMenuItem_Click" />
+
+                                                    <!-- START Extra buttons for DualSense Edge controller -->
+                                                    <MenuItem Header="Function Left" IsCheckable="True" Click="TouchDisInvertMenuItem_Click" />
+                                                    <MenuItem Header="Function Right" IsCheckable="True" Click="TouchDisInvertMenuItem_Click" />
+                                                    <MenuItem Header="Bottom Left Paddle" IsCheckable="True" Click="TouchDisInvertMenuItem_Click" />
+                                                    <MenuItem Header="Bottom Right Paddle" IsCheckable="True" Click="TouchDisInvertMenuItem_Click" />
+                                                    <!-- END Extra buttons for DualSense Edge controller -->
                                                 </ContextMenu>
                                             </Button.ContextMenu>
                                         </Button>
@@ -1578,6 +1591,15 @@
                                                     <MenuItem Header="PS" IsCheckable="True" Click="GyroControlsMenuItem_Click" />
                                                     <MenuItem Header="Touchpad Click" IsCheckable="True" Click="GyroControlsMenuItem_Click" />
                                                     <MenuItem Header="Mute" IsCheckable="True" Click="GyroControlsMenuItem_Click" />
+                                                    <MenuItem Header="Side L" IsCheckable="True" Click="GyroControlsMenuItem_Click" />
+                                                    <MenuItem Header="Side R" IsCheckable="True" Click="GyroControlsMenuItem_Click" />
+
+                                                    <!-- START Extra buttons for DualSense Edge controller -->
+                                                    <MenuItem Header="Function Left" IsCheckable="True" Click="GyroControlsMenuItem_Click" />
+                                                    <MenuItem Header="Function Right" IsCheckable="True" Click="GyroControlsMenuItem_Click" />
+                                                    <MenuItem Header="Bottom Left Paddle" IsCheckable="True" Click="GyroControlsMenuItem_Click" />
+                                                    <MenuItem Header="Bottom Right Paddle" IsCheckable="True" Click="GyroControlsMenuItem_Click" />
+                                                    <!-- END Extra buttons for DualSense Edge controller -->
                                                     <MenuItem Header="Always On" IsCheckable="True" Click="GyroControlsMenuItem_Click" />
                                                 </ContextMenu>
                                             </Button.ContextMenu>
@@ -1690,6 +1712,8 @@
                                                     <MenuItem Header="Right" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
                                                     <MenuItem Header="L3" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
                                                     <MenuItem Header="R3" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
+                                                    <MenuItem Header="Side L" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
+                                                    <MenuItem Header="Side R" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
                                                     <MenuItem Header="Finger on Touchpad" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
                                                     <MenuItem Header="2 Fingers on Touchpad" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
                                                     <MenuItem Header="Options" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
@@ -1697,6 +1721,14 @@
                                                     <MenuItem Header="PS" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
                                                     <MenuItem Header="Touchpad Click" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
                                                     <MenuItem Header="Mute" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
+
+                                                    <!-- START Extra buttons for DualSense Edge controller -->
+                                                    <MenuItem Header="Function Left" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
+                                                    <MenuItem Header="Function Right" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
+                                                    <MenuItem Header="Bottom Left Paddle" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
+                                                    <MenuItem Header="Bottom Right Paddle" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
+                                                    <!-- END Extra buttons for DualSense Edge controller -->
+
                                                     <MenuItem Header="Always On" IsCheckable="True" Click="GyroMouseTrigMenuItem_Click" />
                                                 </ContextMenu>
                                             </Button.ContextMenu>
@@ -1747,6 +1779,9 @@
                                         <xctk:IntegerUpDown d:IsHidden="True" MinWidth="60" Margin="8,0,0,0"
                                                 Value="{Binding GyroMouseDeadZone}" Minimum="0" Maximum="1000" />
                                     </StackPanel>
+
+                                    <CheckBox Content="Jitter Compensation" Margin="{StaticResource spaceMargin}"
+                                        IsChecked="{Binding GyroMouseJitterCompensation}" ToolTip="{lex:Loc GyroTriggerJitterCompensationTooltip}" />
 
                                     <StackPanel Orientation="Horizontal" Margin="{StaticResource spaceMargin}">
                                         <Label Content="Min Threshold" ContentStringFormat="{}{0}:" />
@@ -1819,6 +1854,14 @@
                                                     <MenuItem Header="PS" IsCheckable="True" Click="GyroMouseStickTrigMenuItem_Click" />
                                                     <MenuItem Header="Touchpad Click" IsCheckable="True" Click="GyroMouseStickTrigMenuItem_Click" />
                                                     <MenuItem Header="Mute" IsCheckable="True" Click="GyroMouseStickTrigMenuItem_Click" />
+
+                                                    <!-- START Extra buttons for DualSense Edge controller -->
+                                                    <MenuItem Header="Function Left" IsCheckable="True" Click="GyroMouseStickTrigMenuItem_Click" />
+                                                    <MenuItem Header="Function Right" IsCheckable="True" Click="GyroMouseStickTrigMenuItem_Click" />
+                                                    <MenuItem Header="Bottom Left Paddle" IsCheckable="True" Click="GyroMouseStickTrigMenuItem_Click" />
+                                                    <MenuItem Header="Bottom Right Paddle" IsCheckable="True" Click="GyroMouseStickTrigMenuItem_Click" />
+                                                    <!-- END Extra buttons for DualSense Edge controller -->
+
                                                     <MenuItem Header="Always On" IsCheckable="True" Click="GyroMouseStickTrigMenuItem_Click" />
                                                 </ContextMenu>
                                             </Button.ContextMenu>
@@ -1987,6 +2030,14 @@
                                                     <MenuItem Header="PS" IsCheckable="True" Click="GyroSwipeTrigMenuItem_Click" />
                                                     <MenuItem Header="Touchpad Click" IsCheckable="True" Click="GyroSwipeTrigMenuItem_Click" />
                                                     <MenuItem Header="Mute" IsCheckable="True" Click="GyroSwipeTrigMenuItem_Click" />
+
+                                                    <!-- START Extra buttons for DualSense Edge controller -->
+                                                    <MenuItem Header="Function Left" IsCheckable="True" Click="GyroSwipeTrigMenuItem_Click" />
+                                                    <MenuItem Header="Function Right" IsCheckable="True" Click="GyroSwipeTrigMenuItem_Click" />
+                                                    <MenuItem Header="Bottom Left Paddle" IsCheckable="True" Click="GyroSwipeTrigMenuItem_Click" />
+                                                    <MenuItem Header="Bottom Right Paddle" IsCheckable="True" Click="GyroSwipeTrigMenuItem_Click" />
+                                                    <!-- END Extra buttons for DualSense Edge controller -->
+
                                                     <MenuItem Header="Always On" IsCheckable="True" Click="GyroSwipeTrigMenuItem_Click" />
                                                 </ContextMenu>
                                             </Button.ContextMenu>
@@ -2076,6 +2127,7 @@
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="{lex:Loc Rumble}" MinHeight="50" Margin="4,4,4,0" Padding="0,4,0,4">
+                            <StackPanel>
                             <UniformGrid Rows="1" Columns="3">
                                 <UniformGrid Columns="2" HorizontalAlignment="Left">
                                     <DockPanel>
@@ -2094,6 +2146,39 @@
                                 <Button x:Name="heavyRumbleTestBtn" Content="Test Heavy" Margin="10,0,0,0" Click="HeavyRumbleTestBtn_Click" />
                                 <Button x:Name="lightRumbleTestBtn" Content="Test Light" Margin="10,0,0,0" Click="LightRumbleTestBtn_Click" />
                             </UniformGrid>
+                                <GroupBox Header="{lex:Loc DualSRumbleSpecificSettings}" Margin="0,12,0,0" Padding="2,4">
+
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+
+                                            <Label Content="{lex:Loc DualSRumbleModeNPowerLevelTxt}" Margin="0,0,0,0"/>
+
+                                            <ComboBox x:Name="dualSRumbleEmuMode" SelectedIndex="{Binding DualSenseRumbleEmulationPerIndex, FallbackValue=0}" MinWidth="40" ToolTip="{lex:Loc DualSRumbleModes_Tip}" Margin="0,0,0,0" Width="100">
+                                                <ComboBoxItem Content="{lex:Loc DualSRumbleModeAccurate}"   />
+                                                <ComboBoxItem Content="{lex:Loc DualSRumbleModeLegacy}" />
+                                                <ComboBoxItem Content="{lex:Loc DualSRumbleModeDisabled}" />
+                                            </ComboBox>
+
+                                            <ComboBox SelectedIndex="{Binding DualSenseHapticPowerLevelPerIndex, FallbackValue=0}" MinWidth="40" ToolTip="{lex:Loc DualSRumblePowerLevel_Tip}" Margin="4,0,0,0" Width="58">
+                                                <ComboBoxItem Content="100%" />
+                                                <ComboBoxItem Content="87%" />
+                                                <ComboBoxItem Content="75%" />
+                                                <ComboBoxItem Content="62%" />
+                                                <ComboBoxItem Content="50%" />
+                                                <ComboBoxItem Content="37%" />
+                                                <ComboBoxItem Content="25%" />
+                                                <ComboBoxItem Content="12%" />
+                                            </ComboBox>
+
+                                        </StackPanel>
+
+                                        <CheckBox x:Name="dualSForceGenRumbleRescale" IsChecked="{Binding EnableGenericRumbleStrRescaleForDualSenseDevices}" Content="{lex:Loc DualSRumbleForceGenericRescale}" ToolTip="{lex:Loc DualSRumbleForceGenericRescale_Tip}" Margin="3,8,0,0" HorizontalAlignment="Left" />
+
+                                    </StackPanel>
+
+                                </GroupBox>
+
+                            </StackPanel>
                         </GroupBox>
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                             <Label Content="Use Controller" ToolTip="{lex:Loc Resources:UseControllerForMapping}" />

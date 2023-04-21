@@ -13,21 +13,26 @@ using System.Threading.Tasks;
 using System.Globalization;
 using System.Diagnostics;
 using Sensorit.Base;
-using DS4Windows.DS4Control;
 using System.Windows.Input;
 using System.Runtime.InteropServices;
+using System.Xml.Serialization;
+using System.Management;
+using System.Text;
+using DS4Windows.DS4Control;
+using DS4WinWPF.DS4Control.DTOXml;
 using static DS4Windows.Mouse;
 using DS4Windows.StickModifiers;
 using System.Windows;
 using static DS4Windows.Util;
 using WpfScreenHelper;
+using DS4Windows.InputDevices;
 
 namespace DS4Windows
 {
     [Flags]
     public enum DS4KeyType : byte { None = 0, ScanCode = 1, Toggle = 2, Unbound = 4, Macro = 8, HoldMacro = 16, RepeatMacro = 32 }; // Increment by exponents of 2*, starting at 2^0
     public enum Ds3PadId : byte { None = 0xFF, One = 0x00, Two = 0x01, Three = 0x02, Four = 0x03, All = 0x04 };
-    public enum DS4Controls : byte { None, LXNeg, LXPos, LYNeg, LYPos, RXNeg, RXPos, RYNeg, RYPos, L1, L2, L3, R1, R2, R3, Square, Triangle, Circle, Cross, DpadUp, DpadRight, DpadDown, DpadLeft, PS, TouchLeft, TouchUpper, TouchMulti, TouchRight, Share, Options, Mute, GyroXPos, GyroXNeg, GyroZPos, GyroZNeg, SwipeLeft, SwipeRight, SwipeUp, SwipeDown, L2FullPull, R2FullPull, GyroSwipeLeft, GyroSwipeRight, GyroSwipeUp, GyroSwipeDown, Capture, SideL, SideR, LSOuter, RSOuter };
+    public enum DS4Controls : byte { None, LXNeg, LXPos, LYNeg, LYPos, RXNeg, RXPos, RYNeg, RYPos, L1, L2, L3, R1, R2, R3, Square, Triangle, Circle, Cross, DpadUp, DpadRight, DpadDown, DpadLeft, PS, TouchLeft, TouchUpper, TouchMulti, TouchRight, Share, Options, Mute, FnL, FnR, BLP, BRP, GyroXPos, GyroXNeg, GyroZPos, GyroZNeg, SwipeLeft, SwipeRight, SwipeUp, SwipeDown, L2FullPull, R2FullPull, GyroSwipeLeft, GyroSwipeRight, GyroSwipeUp, GyroSwipeDown, Capture, SideL, SideR, LSOuter, RSOuter };
     public enum X360Controls : byte { None, LXNeg, LXPos, LYNeg, LYPos, RXNeg, RXPos, RYNeg, RYPos, LB, LT, LS, RB, RT, RS, X, Y, B, A, DpadUp, DpadRight, DpadDown, DpadLeft, Guide, Back, Start, TouchpadClick, LeftMouse, RightMouse, MiddleMouse, FourthMouse, FifthMouse, WUP, WDOWN, MouseUp, MouseDown, MouseLeft, MouseRight, AbsMouseUp, AbsMouseDown, AbsMouseLeft, AbsMouseRight, Unbound };
 
     public enum SASteeringWheelEmulationAxisType: byte { None = 0, LX, LY, RX, RY, L2R2, VJoy1X, VJoy1Y, VJoy1Z, VJoy2X, VJoy2Y, VJoy2Z };
@@ -230,7 +235,7 @@ namespace DS4Windows
                 LS.Add(settingsList[i-1]);
             }
 
-            LS.Add(settingsList[(int)DS4Controls.RSOuter - 1]);
+            RS.Add(settingsList[(int)DS4Controls.RSOuter - 1]);
             for (int i = (int)DS4Controls.RXNeg; i <= (int)DS4Controls.RYPos; i++)
             {
                 RS.Add(settingsList[i-1]);
@@ -252,7 +257,16 @@ namespace DS4Windows
             ControlButtons.Add(settingsList[(int)DS4Controls.R1-1]);
             ControlButtons.Add(settingsList[(int)DS4Controls.R3-1]);
 
-            for (int i = (int)DS4Controls.Square; i <= (int)DS4Controls.SwipeDown; i++)
+            // Populate basic buttons used for mapping before DualSense Edge extra
+            // buttons in DS4Controls enum
+            for (int i = (int)DS4Controls.Square; i <= (int)DS4Controls.Mute; i++)
+            {
+                ControlButtons.Add(settingsList[i-1]);
+            }
+
+            // Populate basic buttons used for mapping after DualSense Edge extra
+            // buttons in DS4Controls enum
+            for (int i = (int)DS4Controls.GyroXPos; i <= (int)DS4Controls.SwipeDown; i++)
             {
                 ControlButtons.Add(settingsList[i-1]);
             }
@@ -460,6 +474,7 @@ namespace DS4Windows
         public static CultureInfo configFileDecimalCulture = new CultureInfo("en-US"); // Loading and Saving decimal values in configuration files should always use en-US decimal format (ie. dot char as decimal separator char, not comma char)
 
         protected static BackingStore m_Config = new BackingStore();
+        public static BackingStore store => m_Config;
         protected static Int32 m_IdleTimeout = 600000;
 
         public static string exelocation = Process.GetCurrentProcess().MainModule.FileName;
@@ -588,6 +603,10 @@ namespace DS4Windows
             X360Controls.Back, // DS4Controls.Share
             X360Controls.Start, // DS4Controls.Options
             X360Controls.None, // DS4Controls.Mute
+            X360Controls.None, // DS4Controls.FnL
+            X360Controls.None, // DS4Controls.FnR
+            X360Controls.None, // DS4Controls.BLP
+            X360Controls.None, // DS4Controls.BRP
             X360Controls.None, // DS4Controls.GyroXPos
             X360Controls.None, // DS4Controls.GyroXNeg
             X360Controls.None, // DS4Controls.GyroZPos
@@ -761,6 +780,10 @@ namespace DS4Windows
             [DS4Controls.Share] = "Share",
             [DS4Controls.Options] = "Options",
             [DS4Controls.Mute] = "Mute",
+            [DS4Controls.FnL] = "Function Left",
+            [DS4Controls.FnR] = "Function Right",
+            [DS4Controls.BLP] = "Bottom Left Paddle",
+            [DS4Controls.BRP] = "Bottom Right Paddle",
             [DS4Controls.Capture] = "Capture",
             [DS4Controls.SideL] = "Side L",
             [DS4Controls.SideR] = "Side R",
@@ -1530,16 +1553,6 @@ namespace DS4Windows
             m_Config.useOSCSend = state;
         }
 
-        public static bool isSendingSixaxisToOSC()
-        {
-            return m_Config.oscSendSixaxis;
-        }
-
-        public static void setOSCSendSixaxis(bool state)
-        {
-            m_Config.oscSendSixaxis = state;
-        }
-
         public static int getOSCSenderPortNum()
         {
             return m_Config.oscSendPort;
@@ -1684,6 +1697,14 @@ namespace DS4Windows
         public static byte[] RumbleBoost => m_Config.rumble;
         public static byte getRumbleBoost(int index)
         {
+            if (Program.rootHub.DS4Controllers[index] is DualSenseDevice)
+            {
+                if (!UseGenericRumbleStrRescaleForDualSenses[index])
+                {
+                    return 100;
+                }
+
+            }
             return m_Config.rumble[index];
         }
 
@@ -2194,6 +2215,28 @@ namespace DS4Windows
             return m_Config.btPollRate[index];
         }
 
+        // Start of DualSense specific profile settings
+        //
+        public static DualSenseDevice.RumbleEmulationMode[] DualSenseRumbleEmulationMode
+        {
+            get => m_Config.dualSenseRumbleEmulationMode;
+            set => m_Config.dualSenseRumbleEmulationMode= value;
+        }
+
+        public static bool[] UseGenericRumbleStrRescaleForDualSenses
+        {
+            get => m_Config.useGenericRumbleRescaleForDualSenses;
+            set => m_Config.useGenericRumbleRescaleForDualSenses = value;
+        }
+
+        public static byte[] DualSenseHapticPowerLevel
+        {
+            get => m_Config.dualSenseHapticPowerLevel;
+            set => m_Config.dualSenseHapticPowerLevel = value;
+        }
+        //
+        // End of DualSense specific profile settings
+
         public static SquareStickInfo[] SquStickInfo => m_Config.squStickInfo;
         public static SquareStickInfo GetSquareStickInfo(int device)
         {
@@ -2373,15 +2416,27 @@ namespace DS4Windows
         }
 
         public static void SaveAction(string name, string controls, int mode,
-            string details, bool edit, string extras = "")
+            string details, bool edit, double delayTime = 0.0, string extras = "")
         {
-            m_Config.SaveAction(name, controls, mode, details, edit, extras);
+            m_Config.SaveActionNew(name, controls, mode, details, edit, delayTime, extras);
+            //m_Config.SaveAction(name, controls, mode, details, edit, extras);
+            //m_Config.SaveActions();
+            Mapping.actionDone.Clear();
+            Mapping.actionDone.Add(new Mapping.ActionState());
+        }
+
+        public static void SaveActions()
+        {
+            m_Config.SaveActions();
+            Mapping.actionDone.Clear();
             Mapping.actionDone.Add(new Mapping.ActionState());
         }
 
         public static void RemoveAction(string name)
         {
             m_Config.RemoveAction(name);
+            Mapping.actionDone.Clear();
+            Mapping.actionDone.Add(new Mapping.ActionState());
         }
 
         public static bool LoadActions() => m_Config.LoadActions();
@@ -2480,12 +2535,14 @@ namespace DS4Windows
             }
         }
 
+        //public static bool Load() => m_Config.Load();
         public static bool Load() => m_Config.Load();
-        
+
         public static bool LoadProfile(int device, bool launchprogram, ControlService control,
             bool xinputChange = true, bool postLoad = true)
         {
-            bool result = m_Config.LoadProfile(device, launchprogram, control, "", xinputChange, postLoad);
+            bool result = m_Config.LoadProfileNew(device, launchprogram, control, "", xinputChange, postLoad);
+            //bool result = m_Config.LoadProfile(device, launchprogram, control, "", xinputChange, postLoad);
             tempprofilename[device] = string.Empty;
             useTempProfile[device] = false;
             tempprofileDistance[device] = false;
@@ -2496,7 +2553,8 @@ namespace DS4Windows
         public static bool LoadTempProfile(int device, string name, bool launchprogram,
             ControlService control, bool xinputChange = true)
         {
-            bool result = m_Config.LoadProfile(device, launchprogram, control, Path.Combine(appdatapath, "Profiles", $"{name}.xml"));
+            bool result = m_Config.LoadProfileNew(device, launchprogram, control, Path.Combine(appdatapath, "Profiles", $"{name}.xml"));
+            //bool result = m_Config.LoadProfile(device, launchprogram, control, Path.Combine(appdatapath, "Profiles", $"{name}.xml"));
             if (result)
             {
                 tempprofilename[device] = name;
@@ -2634,7 +2692,8 @@ namespace DS4Windows
 
         public static void SaveProfile(int device, string proName)
         {
-            m_Config.SaveProfile(device, proName);
+            m_Config.SaveProfileNew(device, proName);
+            //m_Config.SaveProfile(device, proName);
         }
 
         public static void SaveAsNewProfile(int device, string propath)
@@ -2943,7 +3002,7 @@ namespace DS4Windows
         public const double DEFAULT_UDP_SMOOTH_BETA = 0.2;
         // Use 15 minutes for default Idle Disconnect when initially enabling the option
         public const int DEFAULT_ENABLE_IDLE_DISCONN_MINS = 15;
-        private const double DEFAULT_SX_TILT_DEADZONE = 0.25;
+        public const double DEFAULT_SX_TILT_DEADZONE = 0.25;
         public String m_Profile = Directory.GetParent(Assembly.GetExecutingAssembly().Location).FullName + "\\Profiles.xml";
         public String m_Actions = Global.appdatapath + "\\Actions.xml";
         public string m_linkedProfiles = Global.appdatapath + "\\LinkedProfiles.xml";
@@ -3107,6 +3166,21 @@ namespace DS4Windows
 
         public int[] saWheelFuzzValues = new int[Global.TEST_PROFILE_ITEM_COUNT];
 
+
+        // Start of DualSense specific profile options
+        //  
+        public DualSenseDevice.RumbleEmulationMode[] dualSenseRumbleEmulationMode = new DualSenseDevice.RumbleEmulationMode[Global.TEST_PROFILE_ITEM_COUNT]
+        {
+            0,0,0,0,0,0,0,0,0
+        };
+        public bool[] useGenericRumbleRescaleForDualSenses = new bool[Global.TEST_PROFILE_ITEM_COUNT] { false, false, false, false, false, false, false, false, false };
+        public byte[] dualSenseHapticPowerLevel = new byte[Global.TEST_PROFILE_ITEM_COUNT]
+        {
+            0,0,0,0,0,0,0,0,0
+        };
+        //
+        // End of DualSense specific profile options
+
         private void setOutBezierCurveObjArrayItem(BezierCurve[] bezierCurveArray, int device, int curveOptionValue, BezierCurve.AxisType axisType)
         {
             // Set bezier curve obj of axis. 0=Linear (no curve mapping), 1-5=Pre-defined curves, 6=User supplied custom curve string value of a profile (comma separated list of 4 decimal numbers)
@@ -3231,8 +3305,12 @@ namespace DS4Windows
         public int[][] touchDisInvertTriggers = new int[Global.TEST_PROFILE_ITEM_COUNT][] { new int[1] { -1 }, new int[1] { -1 }, new int[1] { -1 },
             new int[1] { -1 }, new int[1] { -1 }, new int[1] { -1 }, new int[1] { -1 }, new int[1] { -1 }, new int[1] { -1 } };
         public Boolean useExclusiveMode = false; // Re-enable Ex Mode
-        public Int32 formWidth = 782;
-        public Int32 formHeight = 550;
+
+        public const int DEFAULT_FORM_WIDTH = 782;
+        public int formWidth = DEFAULT_FORM_WIDTH;
+
+        public const int DEFAULT_FORM_HEIGHT = 550;
+        public int formHeight = DEFAULT_FORM_HEIGHT;
         public int formLocationX = 0;
         public int formLocationY = 0;
         public Boolean startMinimized = false;
@@ -3240,10 +3318,16 @@ namespace DS4Windows
         public DateTime lastChecked;
         public string lastVersionChecked = string.Empty;
         public ulong lastVersionCheckedNum;
-        public int CheckWhen = 24;
-        public int notifications = 2;
+
+        public const int DEFAULT_CHECK_WHEN = 24;
+        public int CheckWhen = DEFAULT_CHECK_WHEN;
+
+        public const int DEFAULT_NOTIFICATIONS = 2;
+        public int notifications = DEFAULT_NOTIFICATIONS;
         public bool disconnectBTAtStop = false;
-        public bool swipeProfiles = true;
+
+        public const bool DEFAULT_SWIPE_PROFILES = true;
+        public bool swipeProfiles = DEFAULT_SWIPE_PROFILES;
         public bool ds4Mapping = false;
         public bool quickCharge = false;
         public bool closeMini = false;
@@ -3266,18 +3350,33 @@ namespace DS4Windows
         public string useLang = "";
         public bool downloadLang = true;
         public TrayIconChoice useIconChoice;
-        public bool flashWhenLate = true;
-        public int flashWhenLateAt = 500;
+        public const bool DEFAULT_FLASH_WHEN_LATE = true;
+        public bool flashWhenLate = DEFAULT_FLASH_WHEN_LATE;
+
+        public const int DEFAULT_FLASH_WHEN_LATE_AT = 500;
+        public int flashWhenLateAt = DEFAULT_FLASH_WHEN_LATE_AT;
         public bool useOSCServ = false;
-        public int oscServPort = 9000;
+
+        public const int DEFAULT_OSC_SERV_PORT = 9000;
+        public int oscServPort = DEFAULT_OSC_SERV_PORT;
+
         public bool useOSCSend = false;
-        public int oscSendPort = 9001;
-        public bool oscSendSixaxis = false;
-        public string oscSendAddress = "127.0.0.1";
+
+        public const int DEFAULT_OSC_SEND_PORT = 9001;
+        public int oscSendPort = DEFAULT_OSC_SEND_PORT;
+
+        public const string DEFAULT_OSC_SEND_ADDRESS = "127.0.0.1";
+        public string oscSendAddress = DEFAULT_OSC_SEND_ADDRESS;
         public bool useUDPServ = false;
-        public int udpServPort = 26760;
-        public string udpServListenAddress = "127.0.0.1"; // 127.0.0.1=IPAddress.Loopback (default), 0.0.0.0=IPAddress.Any as all interfaces, x.x.x.x = Specific ipv4 interface address or hostname
+
+        public const int DEFAULT_UDP_SERV_PORT = 26760;
+        public int udpServPort = DEFAULT_UDP_SERV_PORT;
+
+        // 127.0.0.1=IPAddress.Loopback (default), 0.0.0.0=IPAddress.Any as all interfaces, x.x.x.x = Specific ipv4 interface address or hostname
+        public const string DEFAULT_UDP_SERV_LISTEN_ADDR = "127.0.0.1";
+        public string udpServListenAddress = DEFAULT_UDP_SERV_LISTEN_ADDR;
         public bool useUdpSmoothing;
+
         public double udpSmoothingMincutoff = DEFAULT_UDP_SMOOTH_MINCUTOFF;
         public double udpSmoothingBeta = DEFAULT_UDP_SMOOTH_BETA;
         public bool useCustomSteamFolder;
@@ -3346,7 +3445,8 @@ namespace DS4Windows
             OutContType.X360, OutContType.X360, OutContType.X360};
 
         // TRUE=AutoProfile reverts to default profile if current foreground process is unknown, FALSE=Leave existing profile active when a foreground proces is unknown (ie. no matching auto-profile rule)
-        public bool autoProfileRevertDefaultProfile = true;
+        public const bool DEFAULT_AUTO_PROFILE_REVERT_DEFAULT_PROFILE = true;
+        public bool autoProfileRevertDefaultProfile = DEFAULT_AUTO_PROFILE_REVERT_DEFAULT_PROFILE;
 
         bool tempBool = false;
 
@@ -3455,7 +3555,7 @@ namespace DS4Windows
             return -1;
         }
 
-        private string stickOutputCurveString(int id)
+        public string stickOutputCurveString(int id)
         {
             string result = "linear";
             switch (id)
@@ -3473,7 +3573,7 @@ namespace DS4Windows
             return result;
         }
 
-        private int stickOutputCurveId(string name)
+        public int stickOutputCurveId(string name)
         {
             int id = 0;
             switch (name)
@@ -3501,7 +3601,7 @@ namespace DS4Windows
             return stickOutputCurveId(name);
         }
 
-        private bool SaTriggerCondValue(string text)
+        public static bool SaTriggerCondValue(string text)
         {
             bool result = true;
             switch (text)
@@ -3514,7 +3614,7 @@ namespace DS4Windows
             return result;
         }
 
-        private string SaTriggerCondString(bool value)
+        public static string SaTriggerCondString(bool value)
         {
             string result = value ? "and" : "or";
             return result;
@@ -3681,11 +3781,72 @@ namespace DS4Windows
         {
             bool Saved = true;
             ResetProfile(device);
-            Saved = SaveProfile(device, proName);
+            //Saved = SaveProfile(device, proName);
+            Saved = SaveProfileNew(device, proName);
             return Saved;
         }
 
-        public bool SaveProfile(int device, string proName)
+        public bool SaveProfileNew(int device, string proName)
+        {
+            bool saved = true;
+            if (proName.EndsWith(Global.XML_EXTENSION))
+            {
+                proName = proName.Remove(proName.LastIndexOf(Global.XML_EXTENSION));
+            }
+
+            string path = Path.Combine(Global.appdatapath, "Profiles",
+                $"{proName}{Global.XML_EXTENSION}");
+            string testStr = string.Empty;
+            XmlSerializer serializer = new XmlSerializer(typeof(ProfileDTO),
+                ProfileDTO.GetAttributeOverrides());
+            using (Utf8StringWriter strWriter = new Utf8StringWriter())
+            {
+                using XmlWriter xmlWriter = XmlWriter.Create(strWriter,
+                    new XmlWriterSettings()
+                    {
+                        Encoding = Encoding.UTF8,
+                        Indent = true,
+                    });
+
+                // Write header explicitly
+                //xmlWriter.WriteStartDocument();
+                xmlWriter.WriteComment(string.Format(" DS4Windows Configuration Data. {0} ", DateTime.Now));
+                xmlWriter.WriteComment(string.Format(" Made with DS4Windows version {0} ", Global.exeversion));
+                xmlWriter.WriteWhitespace("\r\n");
+                xmlWriter.WriteWhitespace("\r\n");
+
+                // Write root element and children
+                ProfileDTO dto = new ProfileDTO();
+                dto.DeviceIndex = device;
+                dto.MapFrom(this);
+                // Omit xmlns:xsi and xmlns:xsd from output
+                serializer.Serialize(xmlWriter, dto,
+                    new XmlSerializerNamespaces(new[] { XmlQualifiedName.Empty }));
+                xmlWriter.Flush();
+                xmlWriter.Close();
+
+                testStr = strWriter.ToString();
+                //Trace.WriteLine("TEST OUTPUT");
+                //Trace.WriteLine(testStr);
+            }
+
+            try
+            {
+                using (StreamWriter sw = new StreamWriter(path, false))
+                {
+                    sw.Write(testStr);
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + path, false);
+                saved = false;
+            }
+
+            return saved;
+        }
+
+        public bool SaveProfileOld(int device, string proName)
         {
             bool Saved = true;
             //string path = Global.appdatapath + @"\Profiles\" + Path.GetFileNameWithoutExtension(proName) + ".xml";
@@ -4054,6 +4215,17 @@ namespace DS4Windows
                 }
 
                 XmlNode xmlTouchButtonMode = m_Xdoc.CreateNode(XmlNodeType.Element, "TouchpadButtonMode", null); xmlTouchButtonMode.InnerText = touchpadButtonMode[device].ToString(); rootElement.AppendChild(xmlTouchButtonMode);
+                // Start of DualSense specific settings
+                // xmlDSRumbleGroupElement.AppendChild();
+                XmlElement xmlDualSenseControllerSettingsElement = m_Xdoc.CreateElement("DualSenseControllerSettings");
+                XmlElement xmlDSRumbleGroupElement = m_Xdoc.CreateElement("RumbleSettings"); xmlDualSenseControllerSettingsElement.AppendChild(xmlDSRumbleGroupElement);
+                XmlNode xmlDSREmulationModeElement = m_Xdoc.CreateNode(XmlNodeType.Element, "EmulationMode", null); xmlDSREmulationModeElement.InnerText = dualSenseRumbleEmulationMode[device].ToString(); xmlDSRumbleGroupElement.AppendChild(xmlDSREmulationModeElement);
+                XmlNode xmlDSREnableGenericRumbleRescaleElement = m_Xdoc.CreateNode(XmlNodeType.Element, "EnableGenericRumbleRescale", null); xmlDSREnableGenericRumbleRescaleElement.InnerText = useGenericRumbleRescaleForDualSenses[device].ToString(); xmlDSRumbleGroupElement.AppendChild(xmlDSREnableGenericRumbleRescaleElement);
+                XmlNode xmlDSRHapticPowerLevelElement = m_Xdoc.CreateNode(XmlNodeType.Element, "HapticPowerLevel", null); xmlDSRHapticPowerLevelElement.InnerText = dualSenseHapticPowerLevel[device].ToString(); xmlDSRumbleGroupElement.AppendChild(xmlDSRHapticPowerLevelElement);
+                rootElement.AppendChild(xmlDualSenseControllerSettingsElement);
+                //
+                // End of DualSense specific settings
+
                 XmlNode xmlOutContDevice = m_Xdoc.CreateNode(XmlNodeType.Element, "OutputContDevice", null); xmlOutContDevice.InnerText = OutContDeviceString(outputDevType[device]); rootElement.AppendChild(xmlOutContDevice);
 
                 XmlNode NodeControl = m_Xdoc.CreateNode(XmlNodeType.Element, "Control", null);
@@ -4491,6 +4663,235 @@ namespace DS4Windows
             }
 
             return "Unbound";
+        }
+
+        public bool LoadProfileNew(int device, bool launchprogram, ControlService control,
+            string propath = "", bool xinputChange = true, bool postLoad = true)
+        {
+            bool loaded = true;
+
+            bool migratePerformed = false;
+            string profilepath;
+            if (propath == "")
+                profilepath = Path.Combine(Global.appdatapath, "Profiles",
+                    $"{profilePath[device]}.xml");
+            else
+                profilepath = propath;
+
+            if (File.Exists(profilepath))
+            {
+                string profileXml = string.Empty;
+
+                // Run migrations
+                {
+                    XmlDocument migrationDoc = new XmlDocument();
+
+                    ProfileMigration tmpMigration = new ProfileMigration(profilepath);
+                    if (tmpMigration.RequiresMigration())
+                    {
+                        tmpMigration.Migrate();
+                        //migrationDoc.Load(tmpMigration.ProfileReader);
+                        profileXml = tmpMigration.ProfileReader.ReadOuterXml();
+                        migratePerformed = true;
+                    }
+                    else if (tmpMigration.ProfileReader != null)
+                    {
+                        profileXml = tmpMigration.ProfileReader.ReadOuterXml();
+                        //migrationDoc.Load(tmpMigration.ProfileReader);
+                        //migrationDoc.Load(profilepath);
+                    }
+                    else
+                    {
+                        loaded = false;
+                    }
+                }
+
+                if (device < Global.MAX_DS4_CONTROLLER_COUNT)
+                {
+                    DS4LightBar.forcelight[device] = false;
+                    DS4LightBar.forcedFlash[device] = 0;
+                }
+
+                OutContType oldContType = Global.activeOutDevType[device];
+                LightbarSettingInfo lightbarSettings = lightbarSettingInfo[device];
+                LightbarDS4WinInfo lightInfo = lightbarSettings.ds4winSettings;
+
+                bool xinputPlug = false;
+                bool xinputStatus = false;
+
+                // Make sure to reset currently set profile values before parsing
+                ResetProfile(device);
+                ResetMouseProperties(device, control);
+                // Reset some Mapping properties before attempting to load different
+                // profile
+                control.PreLoadReset(device);
+
+                profileActions[device].Clear();
+                foreach (DS4ControlSettings dcs in ds4settings[device])
+                    dcs.Reset();
+
+                //XmlReader xmlReader = XmlReader.Create()
+                XmlSerializer serializer = new XmlSerializer(typeof(ProfileDTO),
+                    ProfileDTO.GetAttributeOverrides());
+                using StringReader sr = new StringReader(profileXml);
+                try
+                {
+                    ProfileDTO dto = serializer.Deserialize(sr) as ProfileDTO;
+                    dto.DeviceIndex = device;
+                    dto.MapTo(this);
+                }
+                catch (InvalidOperationException e)
+                {
+                    AppLogger.LogToGui($"Failed to load {profilepath}. {e.InnerException.Message}", false);
+                    loaded = false;
+                }
+                catch (XmlException e)
+                {
+                    AppLogger.LogToGui($"Failed to load {profilepath}. Invalid XML. {e.InnerException.Message}", false);
+                    loaded = false;
+                }
+
+                if (!loaded)
+                {
+                    return loaded;
+                }
+
+                containsCustomAction[device] = false;
+                containsCustomExtras[device] = false;
+                profileActionCount[device] = profileActions[device].Count;
+                profileActionDict[device].Clear();
+                profileActionIndexDict[device].Clear();
+                foreach (string actionname in profileActions[device])
+                {
+                    profileActionDict[device][actionname] = Global.GetAction(actionname);
+                    profileActionIndexDict[device][actionname] = Global.GetActionIndexOf(actionname);
+                }
+
+                // Only change xinput devices under certain conditions. Avoid
+                // performing this upon program startup before loading devices.
+                if (xinputChange && device < ControlService.CURRENT_DS4_CONTROLLER_LIMIT)
+                {
+                    CheckOldDevicestatus(device, control, oldContType,
+                        out xinputPlug, out xinputStatus);
+                }
+
+                CacheProfileCustomsFlags(device);
+                buttonMouseInfos[device].activeButtonSensitivity =
+                    buttonMouseInfos[device].buttonSensitivity;
+
+                // Check if profile sets a program to launch on loading
+                if (launchprogram && launchProgram[device] != string.Empty)
+                {
+                    string programPath = launchProgram[device];
+                    Process[] localAll = Process.GetProcesses();
+                    bool procFound = false;
+                    for (int procInd = 0, procsLen = localAll.Length; !procFound && procInd < procsLen; procInd++)
+                    {
+                        try
+                        {
+                            string temp = localAll[procInd].MainModule.FileName;
+                            if (temp == programPath)
+                            {
+                                procFound = true;
+                            }
+                        }
+                        // Ignore any process for which this information
+                        // is not exposed
+                        catch { }
+                    }
+
+                    if (!procFound)
+                    {
+                        Task processTask = new Task(() =>
+                        {
+                            Thread.Sleep(5000);
+                            using Process tempProcess = new Process();
+                            tempProcess.StartInfo.FileName = programPath;
+                            tempProcess.StartInfo.WorkingDirectory = new FileInfo(programPath).Directory.ToString();
+                            //tempProcess.StartInfo.UseShellExecute = false;
+                            try { tempProcess.Start(); }
+                            catch { }
+                        });
+
+                        processTask.Start();
+                    }
+                }
+
+                // Check if Touchpad should be switched off
+                if (startTouchpadOff[device] == true) control.StartTPOff(device);
+
+                {
+                    bool tempToggle = gyroControlsInf[device].triggerToggle;
+                    SetGyroControlsToggle(device, tempToggle, control);
+                }
+
+                {
+                    bool tempToggle = gyroMouseToggle[device];
+                    SetGyroMouseToggle(device, tempToggle, control);
+                }
+
+                {
+                    bool tempToggle = gyroMouseStickToggle[device];
+                    SetGyroMouseStickToggle(device, tempToggle, control);
+                }
+
+                {
+                    int tempDZ = gyroMouseDZ[device];
+                    SetGyroMouseDZ(device, tempDZ, control);
+                }
+
+                // If a device exists, make sure to transfer relevant profile device
+                // options to device instance
+                if (postLoad && device < Global.MAX_DS4_CONTROLLER_COUNT)
+                {
+                    PostLoadSnippet(device, control, xinputStatus, xinputPlug);
+                }
+
+                // Migration was performed. Save new XML schema in file
+                if (migratePerformed)
+                {
+                    string proName = Path.GetFileName(profilepath);
+                    SaveProfileNew(device, proName);
+                }
+            }
+            else
+            {
+                loaded = false;
+                ResetProfile(device);
+                ResetMouseProperties(device, control);
+
+                // Reset some Mapping properties
+                control.PreLoadReset(device);
+
+                profileActions[device].Clear();
+                foreach (DS4ControlSettings dcs in ds4settings[device])
+                    dcs.Reset();
+
+                containsCustomAction[device] = false;
+                containsCustomExtras[device] = false;
+                profileActionCount[device] = profileActions[device].Count;
+                profileActionDict[device].Clear();
+                profileActionIndexDict[device].Clear();
+
+                // Unplug existing output device if requested profile does not exist
+                OutputDevice tempOutDev = device < ControlService.CURRENT_DS4_CONTROLLER_LIMIT ?
+                    control.outputDevices[device] : null;
+                if (tempOutDev != null)
+                {
+                    tempOutDev = null;
+                    //Global.activeOutDevType[device] = OutContType.None;
+                    DS4Device tempDev = control.DS4Controllers[device];
+                    if (tempDev != null)
+                    {
+                        tempDev.queueEvent(() =>
+                        {
+                            control.UnplugOutDev(device, tempDev);
+                        });
+                    }
+                }
+            }
+
+            return loaded;
         }
 
         public bool LoadProfile(int device, bool launchprogram, ControlService control,
@@ -6086,6 +6487,57 @@ namespace DS4Windows
                     missingSetting = true;
                 }
 
+
+                // Start of DualSense specific profile load 
+                //
+                XmlNode xmlDualSenseControllerSettingsElement =
+                    m_Xdoc.SelectSingleNode("/" + rootname + "/DualSenseControllerSettings");
+                bool dSControllerSettingsGroup = xmlDualSenseControllerSettingsElement != null;
+                if (dSControllerSettingsGroup)
+                {
+                    XmlNode xmlDSRumbleGroupElement =
+                        xmlDualSenseControllerSettingsElement.SelectSingleNode("RumbleSettings");
+                    bool dSRumbleGroup = xmlDSRumbleGroupElement != null;
+
+                    if (dSRumbleGroup)
+                    {
+                        try
+                        {
+                            Item = xmlDSRumbleGroupElement.SelectSingleNode("EmulationMode");
+                            DualSenseDevice.RumbleEmulationMode.TryParse(Item.InnerText, out DualSenseDevice.RumbleEmulationMode temp);
+                            dualSenseRumbleEmulationMode[device] = temp;
+                        }
+                        catch { missingSetting = true; }
+
+                        try
+                        {
+                            Item = xmlDSRumbleGroupElement.SelectSingleNode("EnableGenericRumbleRescale");
+                            bool.TryParse(Item.InnerText, out bool temp);
+                            useGenericRumbleRescaleForDualSenses[device] = temp;
+                        }
+                        catch { missingSetting = true; }
+
+                        try
+                        {
+                            Item = xmlDSRumbleGroupElement.SelectSingleNode("HapticPowerLevel");
+                            byte.TryParse(Item.InnerText, out byte temp);
+                            dualSenseHapticPowerLevel[device] = temp;
+                        }
+                        catch { missingSetting = true; }
+
+                    }
+                    else
+                    {
+                        missingSetting = true;
+                    }
+                }
+                else
+                {
+                    missingSetting = true;
+                }
+                //
+                // End of DualSense specific profile load 
+
                 try { Item = m_Xdoc.SelectSingleNode("/" + rootname + "/L2OutputCurveCustom"); l2OutBezierCurveObj[device].CustomDefinition = Item.InnerText; }
                 catch { missingSetting = true; }
                 try { Item = m_Xdoc.SelectSingleNode("/" + rootname + "/L2OutputCurveMode"); setL2OutCurveMode(device, axisOutputCurveId(Item.InnerText)); }
@@ -6788,7 +7240,7 @@ namespace DS4Windows
             if ((missingSetting || migratePerformed) && Loaded)// && buttons != null)
             {
                 string proName = Path.GetFileName(profilepath);
-                SaveProfile(device, proName);
+                SaveProfileOld(device, proName);
             }
 
             if (Loaded)
@@ -6825,6 +7277,51 @@ namespace DS4Windows
         }
 
         public bool Load()
+        {
+            bool loaded = true;
+            if (File.Exists(m_Profile))
+            {
+                XmlSerializer serializer = new XmlSerializer(typeof(AppSettingsDTO));
+                using StreamReader sr = new StreamReader(m_Profile);
+                try
+                {
+                    AppSettingsDTO dto = serializer.Deserialize(sr) as AppSettingsDTO;
+                    dto.MapTo(this);
+
+                    PostProcessLoad();
+                }
+                catch(InvalidOperationException e)
+                {
+                    AppLogger.LogToGui("Failed to load Profiles.xml.", false);
+                    loaded = false;
+                }
+            }
+            else
+            {
+                loaded = false;
+            }
+
+            if (loaded)
+            {
+                Global.PrepareAbsMonitorBounds(absDisplayEDID);
+
+                string custom_exe_name_path = Path.Combine(Global.exedirpath, Global.CUSTOM_EXE_CONFIG_FILENAME);
+                bool fakeExeFileExists = File.Exists(custom_exe_name_path);
+                if (fakeExeFileExists)
+                {
+                    string fake_exe_name = File.ReadAllText(custom_exe_name_path).Trim();
+                    bool valid = !(fake_exe_name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0);
+                    if (valid)
+                    {
+                        fakeExeFileName = fake_exe_name;
+                    }
+                }
+            }
+
+            return loaded;
+        }
+
+        public bool LoadOld()
         {
             bool Loaded = true;
             bool missingSetting = false;
@@ -6931,6 +7428,7 @@ namespace DS4Windows
                     {
                         missingSetting = true;
 
+                        // Backwards compatible code from when only two icons existed
                         try
                         {
                             Item = m_Xdoc.SelectSingleNode("/Profile/WhiteIcon");
@@ -6957,8 +7455,6 @@ namespace DS4Windows
                     catch { missingSetting = true; }
 
                     try { Item = m_Xdoc.SelectSingleNode("/Profile/UseOSCSender"); Boolean.TryParse(Item.InnerText, out useOSCSend); }
-                    catch { missingSetting = true; }
-                    try { Item = m_Xdoc.SelectSingleNode("/Profile/OSCSendSixaxis"); Boolean.TryParse(Item.InnerText, out oscSendSixaxis); }
                     catch { missingSetting = true; }
                     try { Item = m_Xdoc.SelectSingleNode("/Profile/OSCSenderPort"); int temp; int.TryParse(Item.InnerText, out temp); oscSendPort = Math.Min(Math.Max(temp, 1024), 65535); }
                     catch { missingSetting = true; }
@@ -7140,6 +7636,70 @@ namespace DS4Windows
 
         public bool Save()
         {
+            bool saved = true;
+
+            string testStr = string.Empty;
+            XmlSerializer serializer = new XmlSerializer(typeof(AppSettingsDTO));
+            using (Utf8StringWriter strWriter = new Utf8StringWriter())
+            {
+                using XmlWriter xmlWriter = XmlWriter.Create(strWriter,
+                    new XmlWriterSettings()
+                    {
+                        Encoding = Encoding.UTF8,
+                        Indent = true,
+                    });
+
+                // Write header explicitly
+                xmlWriter.WriteStartDocument();
+                xmlWriter.WriteComment(string.Format(" Profile Configuration Data. {0} ", DateTime.Now));
+                xmlWriter.WriteComment(string.Format(" Made with DS4Windows version {0} ", Global.exeversion));
+                xmlWriter.WriteWhitespace("\r\n");
+                xmlWriter.WriteWhitespace("\r\n");
+
+                // Write root element and children
+                AppSettingsDTO dto = new AppSettingsDTO();
+                dto.MapFrom(this);
+                // Omit xmlns:xsi and xmlns:xsd from output
+                serializer.Serialize(xmlWriter, dto,
+                    new XmlSerializerNamespaces(new[] { XmlQualifiedName.Empty }));
+                xmlWriter.Flush();
+                xmlWriter.Close();
+
+                testStr = strWriter.ToString();
+                //Trace.WriteLine("TEST OUTPUT");
+                //Trace.WriteLine(testStr);
+            }
+
+            try
+            {
+                using (StreamWriter sw = new StreamWriter(m_Profile, false))
+                {
+                    sw.Write(testStr);
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_Profile, false);
+                saved = false;
+            }
+
+            bool adminNeeded = Global.AdminNeeded();
+            if (saved &&
+                (!adminNeeded || (adminNeeded && Global.IsAdministrator())))
+            {
+                string custom_exe_name_path = Path.Combine(Global.exedirpath, Global.CUSTOM_EXE_CONFIG_FILENAME);
+                bool fakeExeFileExists = File.Exists(custom_exe_name_path);
+                if (!string.IsNullOrEmpty(fakeExeFileName) || fakeExeFileExists)
+                {
+                    File.WriteAllText(custom_exe_name_path, fakeExeFileName);
+                }
+            }
+
+            return saved;
+        }
+
+        public bool SaveOld()
+        {
             bool Saved = true;
 
             XmlNode Node;
@@ -7204,7 +7764,6 @@ namespace DS4Windows
             XmlNode xmlOSCServPort = m_Xdoc.CreateNode(XmlNodeType.Element, "OSCServerPort", null); xmlOSCServPort.InnerText = oscServPort.ToString(); rootElement.AppendChild(xmlOSCServPort);
 
             XmlNode xmlUseOSCSend = m_Xdoc.CreateNode(XmlNodeType.Element, "UseOSCSender", null); xmlUseOSCSend.InnerText = useOSCSend.ToString(); rootElement.AppendChild(xmlUseOSCSend);
-            XmlNode xmlOSCSendSixaxis = m_Xdoc.CreateNode(XmlNodeType.Element, "OSCSendSixaxis", null); xmlOSCSendSixaxis.InnerText = oscSendSixaxis.ToString(); rootElement.AppendChild(xmlOSCSendSixaxis);
             XmlNode xmlOSCSendPort = m_Xdoc.CreateNode(XmlNodeType.Element, "OSCSenderPort", null); xmlOSCSendPort.InnerText = oscSendPort.ToString(); rootElement.AppendChild(xmlOSCSendPort);
             XmlNode xmlOSCSendAddress = m_Xdoc.CreateNode(XmlNodeType.Element, "OSCSenderAddress", null); xmlOSCSendAddress.InnerText = oscSendAddress; rootElement.AppendChild(xmlOSCSendAddress);
 
@@ -7295,6 +7854,86 @@ namespace DS4Windows
             return Saved;
         }
 
+        public void PostProcessLoad()
+        {
+            // Check if any set profile names should be considered Distance profiles
+            for (int i = 0; i < Global.MAX_DS4_CONTROLLER_COUNT; i++)
+            {
+                if (profilePath[i].ToLower().Contains("distance"))
+                {
+                    distanceProfiles[i] = true;
+                }
+            }
+
+            // Compile shortcut version number if lastVersionChecked is populated
+            if (!string.IsNullOrEmpty(lastVersionChecked))
+            {
+                lastVersionCheckedNum = Global.CompileVersionNumberFromString(lastVersionChecked);
+                if (lastVersionCheckedNum == 0) lastVersionChecked = string.Empty;
+            }
+
+            oscServPort = Math.Clamp(oscServPort, 1024, 65535);
+            oscSendPort = Math.Clamp(oscSendPort, 1024, 65535);
+            udpServPort = Math.Clamp(udpServPort, 1024, 65535);
+
+            udpSmoothingMincutoff = Math.Clamp(udpSmoothingMincutoff, 0.00001, 100.0);
+            udpSmoothingBeta = Math.Clamp(udpSmoothingBeta, 0.0, 1.0);
+        }
+
+        public string UsedSavedProfileString(int index)
+        {
+            if (index < 0 && index > Global.MAX_DS4_CONTROLLER_COUNT)
+            {
+                throw new ArgumentOutOfRangeException();
+            }
+
+            return !Global.linkedProfileCheck[index] ?
+                Global.ProfilePath[index] : Global.OlderProfilePath[index];
+        }
+
+        public static void ParseCustomLedString(string source, LightbarDS4WinInfo destination)
+        {
+            try
+            {
+                string[] ss = source.Split(':');
+                bool.TryParse(ss[0], out destination.useCustomLed);
+                DS4Color.TryParse(ss[1], ref destination.m_CustomLed);
+            }
+            catch
+            {
+                destination.useCustomLed = false;
+                destination.m_CustomLed = new DS4Color(Color.Blue);
+            }
+        }
+
+        public static string CompileCustomLedString(LightbarDS4WinInfo ledInfo)
+        {
+            string result = $"{ledInfo.useCustomLed}:{ledInfo.m_CustomLed.red},{ledInfo.m_CustomLed.green},{ledInfo.m_CustomLed.blue}";
+            return result;
+
+        }
+
+        public void PopulateLightbarDS4WinInfo(int index, LightbarDS4WinInfo source)
+        {
+            if (index < 0 && index > Global.MAX_DS4_CONTROLLER_COUNT)
+            {
+                throw new ArgumentOutOfRangeException();
+            }
+
+            lightbarSettingInfo[index].ds4winSettings.useCustomLed = source.useCustomLed;
+            lightbarSettingInfo[index].ds4winSettings.m_CustomLed = source.m_CustomLed;
+        }
+
+        public LightbarDS4WinInfo ObtainLightbarDS4WinInfo(int index)
+        {
+            if (index < 0 && index > Global.MAX_DS4_CONTROLLER_COUNT)
+            {
+                throw new ArgumentOutOfRangeException();
+            }
+
+            return lightbarSettingInfo[index].ds4winSettings;
+        }
+
         private void CreateAction()
         {
             XmlDocument m_Xdoc = new XmlDocument();
@@ -7317,6 +7956,112 @@ namespace DS4Windows
 
             Node = xmlDoc.CreateNode(XmlNodeType.Element, "Actions", "");
             xmlDoc.AppendChild(Node);
+        }
+
+        public bool SaveActions()
+        {
+            bool saved = true;
+
+            string output_path = m_Actions;
+            string testStr = string.Empty;
+            XmlSerializer serializer = new XmlSerializer(typeof(ActionsDTO));
+            using (Utf8StringWriter strWriter = new Utf8StringWriter())
+            {
+                using XmlWriter xmlWriter = XmlWriter.Create(strWriter,
+                    new XmlWriterSettings()
+                    {
+                        Encoding = Encoding.UTF8,
+                        Indent = true,
+                    });
+
+                // Write header explicitly
+                //xmlWriter.WriteStartDocument();
+                xmlWriter.WriteComment(String.Format(" Special Actions Configuration Data. {0} ", DateTime.Now));
+                xmlWriter.WriteWhitespace("\r\n");
+                xmlWriter.WriteWhitespace("\r\n");
+
+                // Write root element and children
+                ActionsDTO dto = new ActionsDTO();
+                dto.MapFrom(this);
+                // Omit xmlns:xsi and xmlns:xsd from output
+                serializer.Serialize(xmlWriter, dto,
+                    new XmlSerializerNamespaces(new[] { XmlQualifiedName.Empty }));
+                xmlWriter.Flush();
+                xmlWriter.Close();
+
+                testStr = strWriter.ToString();
+                //Trace.WriteLine("TEST OUTPUT");
+                //Trace.WriteLine(testStr);
+            }
+
+            try
+            {
+                using (StreamWriter sw = new StreamWriter(output_path, false))
+                {
+                    sw.Write(testStr);
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                saved = false;
+            }
+
+            return saved;
+        }
+
+        public void SaveActionNew(string name, string controls, int mode, string details, bool edit, double delayTime = 0.0, string extras = "")
+        {
+            SpecialAction tempAction = null;
+
+            switch (mode)
+            {
+                case 1:
+                    tempAction = new SpecialAction(name, controls, "Macro", details, extras: extras);
+                    break;
+                case 2:
+                    string[] tempDetails = details.Split("?");
+                    //double doub = 0.0;
+                    //double.TryParse(tempDetails[1], out doub);
+                    tempAction = new SpecialAction(name, controls, "Program", tempDetails[0],
+                        delay: delayTime, extras: extras);
+                    break;
+                case 3:
+                    tempAction = new SpecialAction(name, controls, "Profile", details, extras: extras);
+                    break;
+                case 4:
+                    tempAction = new SpecialAction(name, controls, "Key", details, extras: extras);
+                    break;
+                case 5:
+                    tempAction = new SpecialAction(name, controls, "DisconnectBT", details, delayTime);
+                    break;
+                case 6:
+                    tempAction = new SpecialAction(name, controls, "BatteryCheck", details, delayTime);
+                    break;
+                case 7:
+                    tempAction = new SpecialAction(name, controls, "MultiAction", details);
+                    break;
+                case 8:
+                    tempAction = new SpecialAction(name, controls, "SASteeringWheelEmulationCalibrate",
+                        details, delayTime);
+                    break;
+                default:
+                    break;
+            }
+
+            if (edit)
+            {
+                int tempIndex = actions.FindIndex(item => item.name == name);
+                if (tempIndex != -1 && tempAction != null)
+                {
+                    actions[tempIndex] = tempAction;
+                }
+            }
+            else if (tempAction != null)
+            {
+                actions.Add(tempAction);
+            }
+
+            SaveActions();
         }
 
         public bool SaveAction(string name, string controls, int mode, string details, bool edit, string extras = "")
@@ -7410,143 +8155,233 @@ namespace DS4Windows
 
         public void RemoveAction(string name)
         {
-            m_Xdoc.Load(m_Actions);
-            XmlNode Node = m_Xdoc.SelectSingleNode("Actions");
-            XmlNode Item = m_Xdoc.SelectSingleNode("/Actions/Action[@Name=\"" + name + "\"]");
-            if (Item != null)
-                Node.RemoveChild(Item);
+            int tempIndex = actions.FindIndex(item => item.name == name);
+            if (tempIndex != -1)
+            {
+                actions.RemoveAt(tempIndex);
+            }
 
-            m_Xdoc.AppendChild(Node);
-            m_Xdoc.Save(m_Actions);
-            LoadActions();
+            SaveActions();
+
+            //m_Xdoc.Load(m_Actions);
+            //XmlNode Node = m_Xdoc.SelectSingleNode("Actions");
+            //XmlNode Item = m_Xdoc.SelectSingleNode("/Actions/Action[@Name=\"" + name + "\"]");
+            //if (Item != null)
+            //    Node.RemoveChild(Item);
+
+            //m_Xdoc.AppendChild(Node);
+            //m_Xdoc.Save(m_Actions);
+            //LoadActions();
         }
 
         public bool LoadActions()
         {
-            bool saved = true;
-            if (!File.Exists(Global.appdatapath + "\\Actions.xml"))
+            bool loaded = true;
+
+            actions.Clear();
+            Mapping.actionDone.Clear();
+
+            //string configFile = Path.Combine(Global.appdatapath, "Actions.xml");
+            if (!File.Exists(m_Actions))
             {
-                SaveAction("Disconnect Controller", "PS/Options", 5, "0", false);
-                saved = false;
+                actions.Add(new SpecialAction("Disconnect Controller", "PS/Options", "DisconnectBT", "0"));
+                loaded = SaveActions();
+                return loaded;
             }
 
+            XmlSerializer serializer = new XmlSerializer(typeof(ActionsDTO));
+            using StreamReader sr = new StreamReader(m_Actions);
             try
             {
-                actions.Clear();
-                XmlDocument doc = new XmlDocument();
-                doc.Load(Global.appdatapath + "\\Actions.xml");
-                XmlNodeList actionslist = doc.SelectNodes("Actions/Action");
-                string name, controls, type, details, extras, extras2;
-                Mapping.actionDone.Clear();
-                foreach (XmlNode x in actionslist)
-                {
-                    name = x.Attributes["Name"].Value;
-                    controls = x.ChildNodes[0].InnerText;
-                    type = x.ChildNodes[1].InnerText;
-                    details = x.ChildNodes[2].InnerText;
-                    Mapping.actionDone.Add(new Mapping.ActionState());
-                    if (type == "Profile")
-                    {
-                        extras = x.ChildNodes[3].InnerText;
-                        actions.Add(new SpecialAction(name, controls, type, details, 0, extras));
-                    }
-                    else if (type == "Macro")
-                    {
-                        if (x.ChildNodes[3] != null) extras = x.ChildNodes[3].InnerText;
-                        else extras = string.Empty;
-                        actions.Add(new SpecialAction(name, controls, type, details, 0, extras));
-                    }
-                    else if (type == "Key")
-                    {
-                        if (x.ChildNodes[3] != null)
-                        {
-                            extras = x.ChildNodes[3].InnerText;
-                            extras2 = x.ChildNodes[4].InnerText;
-                        }
-                        else
-                        {
-                            extras = string.Empty;
-                            extras2 = string.Empty;
-                        }
-                        if (!string.IsNullOrEmpty(extras))
-                            actions.Add(new SpecialAction(name, controls, type, details, 0, extras2 + '\n' + extras));
-                        else
-                            actions.Add(new SpecialAction(name, controls, type, details));
-                    }
-                    else if (type == "DisconnectBT")
-                    {
-                        double doub;
-                        if (double.TryParse(details, System.Globalization.NumberStyles.Float, Global.configFileDecimalCulture, out doub))
-                            actions.Add(new SpecialAction(name, controls, type, "", doub));
-                        else
-                            actions.Add(new SpecialAction(name, controls, type, ""));
-                    }
-                    else if (type == "BatteryCheck")
-                    {
-                        double doub;
-                        if (double.TryParse(details.Split('|')[0], System.Globalization.NumberStyles.Float, Global.configFileDecimalCulture, out doub))
-                            actions.Add(new SpecialAction(name, controls, type, details, doub));
-                        else if (double.TryParse(details.Split(',')[0], System.Globalization.NumberStyles.Float, Global.configFileDecimalCulture, out doub))
-                            actions.Add(new SpecialAction(name, controls, type, details, doub));
-                        else
-                            actions.Add(new SpecialAction(name, controls, type, details));
-                    }
-                    else if (type == "Program")
-                    {
-                        double doub;
-                        if (x.ChildNodes[3] != null)
-                        {
-                            extras = x.ChildNodes[3].InnerText;
-                            if (double.TryParse(x.ChildNodes[4].InnerText, System.Globalization.NumberStyles.Float, Global.configFileDecimalCulture, out doub))
-                                actions.Add(new SpecialAction(name, controls, type, details, doub, extras));
-                            else
-                                actions.Add(new SpecialAction(name, controls, type, details, 0, extras));
-                        }
-                        else
-                        {
-                            actions.Add(new SpecialAction(name, controls, type, details));
-                        }
-                    }
-                    else if (type == "XboxGameDVR" || type == "MultiAction")
-                    {
-                        actions.Add(new SpecialAction(name, controls, type, details));
-                    }
-                    else if (type == "SASteeringWheelEmulationCalibrate")
-                    {
-                        double doub;
-                        if (double.TryParse(details, System.Globalization.NumberStyles.Float, Global.configFileDecimalCulture, out doub))
-                            actions.Add(new SpecialAction(name, controls, type, "", doub));
-                        else
-                            actions.Add(new SpecialAction(name, controls, type, ""));
-                    }
-                }
+                ActionsDTO dto = serializer.Deserialize(sr) as ActionsDTO;
+                dto.MapTo(this);
             }
-            catch { saved = false; }
-            return saved;
+            catch (InvalidOperationException e)
+            {
+                AppLogger.LogToGui($"Actions.xml contains invalid data. Could not be read. {e.InnerException.Message}", false);
+                loaded = false;
+            }
+            catch (XmlException e)
+            {
+                AppLogger.LogToGui($"Actions.xml could not be read. Invalid XML syntax. {e.InnerException.Message}", false);
+                loaded = false;
+            }
+
+            return loaded;
+
+            //bool saved = true;
+            //if (!File.Exists(Global.appdatapath + "\\Actions.xml"))
+            //{
+            //    SaveAction("Disconnect Controller", "PS/Options", 5, "0", false);
+            //    saved = false;
+            //}
+
+            //try
+            //{
+            //    actions.Clear();
+            //    XmlDocument doc = new XmlDocument();
+            //    doc.Load(Global.appdatapath + "\\Actions.xml");
+            //    XmlNodeList actionslist = doc.SelectNodes("Actions/Action");
+            //    string name, controls, type, details, extras, extras2;
+            //    Mapping.actionDone.Clear();
+            //    foreach (XmlNode x in actionslist)
+            //    {
+            //        name = x.Attributes["Name"].Value;
+            //        controls = x.ChildNodes[0].InnerText;
+            //        type = x.ChildNodes[1].InnerText;
+            //        details = x.ChildNodes[2].InnerText;
+            //        Mapping.actionDone.Add(new Mapping.ActionState());
+            //        if (type == "Profile")
+            //        {
+            //            extras = x.ChildNodes[3].InnerText;
+            //            actions.Add(new SpecialAction(name, controls, type, details, 0, extras));
+            //        }
+            //        else if (type == "Macro")
+            //        {
+            //            if (x.ChildNodes[3] != null) extras = x.ChildNodes[3].InnerText;
+            //            else extras = string.Empty;
+            //            actions.Add(new SpecialAction(name, controls, type, details, 0, extras));
+            //        }
+            //        else if (type == "Key")
+            //        {
+            //            if (x.ChildNodes[3] != null)
+            //            {
+            //                extras = x.ChildNodes[3].InnerText;
+            //                extras2 = x.ChildNodes[4].InnerText;
+            //            }
+            //            else
+            //            {
+            //                extras = string.Empty;
+            //                extras2 = string.Empty;
+            //            }
+            //            if (!string.IsNullOrEmpty(extras))
+            //                actions.Add(new SpecialAction(name, controls, type, details, 0, extras2 + '\n' + extras));
+            //            else
+            //                actions.Add(new SpecialAction(name, controls, type, details));
+            //        }
+            //        else if (type == "DisconnectBT")
+            //        {
+            //            double doub;
+            //            if (double.TryParse(details, System.Globalization.NumberStyles.Float, Global.configFileDecimalCulture, out doub))
+            //                actions.Add(new SpecialAction(name, controls, type, "", doub));
+            //            else
+            //                actions.Add(new SpecialAction(name, controls, type, ""));
+            //        }
+            //        else if (type == "BatteryCheck")
+            //        {
+            //            double doub;
+            //            if (double.TryParse(details.Split('|')[0], System.Globalization.NumberStyles.Float, Global.configFileDecimalCulture, out doub))
+            //                actions.Add(new SpecialAction(name, controls, type, details, doub));
+            //            else if (double.TryParse(details.Split(',')[0], System.Globalization.NumberStyles.Float, Global.configFileDecimalCulture, out doub))
+            //                actions.Add(new SpecialAction(name, controls, type, details, doub));
+            //            else
+            //                actions.Add(new SpecialAction(name, controls, type, details));
+            //        }
+            //        else if (type == "Program")
+            //        {
+            //            double doub;
+            //            if (x.ChildNodes[3] != null)
+            //            {
+            //                extras = x.ChildNodes[3].InnerText;
+            //                if (double.TryParse(x.ChildNodes[4].InnerText, System.Globalization.NumberStyles.Float, Global.configFileDecimalCulture, out doub))
+            //                    actions.Add(new SpecialAction(name, controls, type, details, doub, extras));
+            //                else
+            //                    actions.Add(new SpecialAction(name, controls, type, details, 0, extras));
+            //            }
+            //            else
+            //            {
+            //                actions.Add(new SpecialAction(name, controls, type, details));
+            //            }
+            //        }
+            //        else if (type == "XboxGameDVR" || type == "MultiAction")
+            //        {
+            //            actions.Add(new SpecialAction(name, controls, type, details));
+            //        }
+            //        else if (type == "SASteeringWheelEmulationCalibrate")
+            //        {
+            //            double doub;
+            //            if (double.TryParse(details, System.Globalization.NumberStyles.Float, Global.configFileDecimalCulture, out doub))
+            //                actions.Add(new SpecialAction(name, controls, type, "", doub));
+            //            else
+            //                actions.Add(new SpecialAction(name, controls, type, ""));
+            //        }
+            //    }
+            //}
+            //catch { saved = false; }
+            //return saved;
         }
 
         public bool createLinkedProfiles()
         {
             bool saved = true;
-            XmlDocument m_Xdoc = new XmlDocument();
-            XmlNode Node;
 
-            Node = m_Xdoc.CreateXmlDeclaration("1.0", "utf-8", string.Empty);
-            m_Xdoc.AppendChild(Node);
+            string output_path = m_linkedProfiles;
+            string testStr = string.Empty;
+            XmlSerializer serializer = new XmlSerializer(typeof(LinkedProfilesDTO));
+            using (Utf8StringWriter strWriter = new Utf8StringWriter())
+            {
+                using XmlWriter xmlWriter = XmlWriter.Create(strWriter,
+                    new XmlWriterSettings()
+                    {
+                        Encoding = Encoding.UTF8,
+                        Indent = true,
+                    });
 
-            Node = m_Xdoc.CreateComment(string.Format(" Mac Address and Profile Linking Data. {0} ", DateTime.Now));
-            m_Xdoc.AppendChild(Node);
+                // Write header explicitly
+                //xmlWriter.WriteStartDocument();
+                xmlWriter.WriteComment(string.Format(" Mac Address and Profile Linking Data. {0} ", DateTime.Now));
+                xmlWriter.WriteWhitespace("\r\n");
+                xmlWriter.WriteWhitespace("\r\n");
 
-            Node = m_Xdoc.CreateWhitespace("\r\n");
-            m_Xdoc.AppendChild(Node);
+                // Write root element and children
+                LinkedProfilesDTO dto = new LinkedProfilesDTO();
+                dto.MapFrom(this);
+                // Omit xmlns:xsi and xmlns:xsd from output
+                serializer.Serialize(xmlWriter, dto,
+                    new XmlSerializerNamespaces(new[] { XmlQualifiedName.Empty }));
+                xmlWriter.Flush();
+                xmlWriter.Close();
 
-            Node = m_Xdoc.CreateNode(XmlNodeType.Element, "LinkedControllers", "");
-            m_Xdoc.AppendChild(Node);
+                testStr = strWriter.ToString();
+                //Trace.WriteLine("TEST OUTPUT");
+                //Trace.WriteLine(testStr);
+            }
 
-            try { m_Xdoc.Save(m_linkedProfiles); }
-            catch (UnauthorizedAccessException) { AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_linkedProfiles, false); saved = false; }
+            try
+            {
+                using (StreamWriter sw = new StreamWriter(output_path, false))
+                {
+                    sw.Write(testStr);
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_linkedProfiles, false);
+                saved = false;
+            }
 
             return saved;
+
+            //bool saved = true;
+            //XmlDocument m_Xdoc = new XmlDocument();
+            //XmlNode Node;
+
+            //Node = m_Xdoc.CreateXmlDeclaration("1.0", "utf-8", string.Empty);
+            //m_Xdoc.AppendChild(Node);
+
+            //Node = m_Xdoc.CreateComment(string.Format(" Mac Address and Profile Linking Data. {0} ", DateTime.Now));
+            //m_Xdoc.AppendChild(Node);
+
+            //Node = m_Xdoc.CreateWhitespace("\r\n");
+            //m_Xdoc.AppendChild(Node);
+
+            //Node = m_Xdoc.CreateNode(XmlNodeType.Element, "LinkedControllers", "");
+            //m_Xdoc.AppendChild(Node);
+
+            //try { m_Xdoc.Save(m_linkedProfiles); }
+            //catch (UnauthorizedAccessException) { AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_linkedProfiles, false); saved = false; }
+
+            //return saved;
         }
 
         public bool LoadLinkedProfiles()
@@ -7554,24 +8389,21 @@ namespace DS4Windows
             bool loaded = true;
             if (File.Exists(m_linkedProfiles))
             {
-                XmlDocument linkedXdoc = new XmlDocument();
-                XmlNode Node;
-                linkedXdoc.Load(m_linkedProfiles);
-                linkedProfiles.Clear();
-
+                XmlSerializer serializer = new XmlSerializer(typeof(LinkedProfilesDTO));
+                using StreamReader sr = new StreamReader(m_linkedProfiles);
                 try
                 {
-                    Node = linkedXdoc.SelectSingleNode("/LinkedControllers");
-                    XmlNodeList links = Node.ChildNodes;
-                    for (int i = 0, listLen = links.Count; i < listLen; i++)
-                    {
-                        XmlNode current = links[i];
-                        string serial = current.Name.Replace("MAC", string.Empty);
-                        string profile = current.InnerText;
-                        linkedProfiles[serial] = profile;
-                    }
+                    LinkedProfilesDTO dto = serializer.Deserialize(sr) as LinkedProfilesDTO;
+                    dto.MapTo(this);
                 }
-                catch { loaded = false; }
+                catch (InvalidOperationException e)
+                {
+                    AppLogger.LogToGui($"LinkedProfiles.xml contains invalid data. Could not be read. {e.InnerException.Message}", false);
+                }
+                catch (XmlException e)
+                {
+                    AppLogger.LogToGui($"LinkedProfiles.xml could not be read. Invalid XML syntax. {e.InnerException.Message}", false);
+                }
             }
             else
             {
@@ -7580,50 +8412,137 @@ namespace DS4Windows
             }
 
             return loaded;
+
+            //bool loaded = true;
+            //if (File.Exists(m_linkedProfiles))
+            //{
+            //    XmlDocument linkedXdoc = new XmlDocument();
+            //    XmlNode Node;
+            //    linkedXdoc.Load(m_linkedProfiles);
+            //    linkedProfiles.Clear();
+
+            //    try
+            //    {
+            //        Node = linkedXdoc.SelectSingleNode("/LinkedControllers");
+            //        XmlNodeList links = Node.ChildNodes;
+            //        for (int i = 0, listLen = links.Count; i < listLen; i++)
+            //        {
+            //            XmlNode current = links[i];
+            //            string serial = current.Name.Replace("MAC", string.Empty);
+            //            string profile = current.InnerText;
+            //            linkedProfiles[serial] = profile;
+            //        }
+            //    }
+            //    catch { loaded = false; }
+            //}
+            //else
+            //{
+            //    AppLogger.LogToGui("LinkedProfiles.xml can't be found.", false);
+            //    loaded = false;
+            //}
+
+            //return loaded;
         }
 
         public bool SaveLinkedProfiles()
         {
             bool saved = true;
+
+            string output_path = m_linkedProfiles;
             if (File.Exists(m_linkedProfiles))
             {
-                XmlDocument linkedXdoc = new XmlDocument();
-                XmlNode Node;
-
-                Node = linkedXdoc.CreateXmlDeclaration("1.0", "utf-8", string.Empty);
-                linkedXdoc.AppendChild(Node);
-
-                Node = linkedXdoc.CreateComment(string.Format(" Mac Address and Profile Linking Data. {0} ", DateTime.Now));
-                linkedXdoc.AppendChild(Node);
-
-                Node = linkedXdoc.CreateWhitespace("\r\n");
-                linkedXdoc.AppendChild(Node);
-
-                Node = linkedXdoc.CreateNode(XmlNodeType.Element, "LinkedControllers", "");
-                linkedXdoc.AppendChild(Node);
-
-                Dictionary<string, string>.KeyCollection serials = linkedProfiles.Keys;
-                //for (int i = 0, itemCount = linkedProfiles.Count; i < itemCount; i++)
-                for (var serialEnum = serials.GetEnumerator(); serialEnum.MoveNext();)
+                string testStr = string.Empty;
+                XmlSerializer serializer = new XmlSerializer(typeof(LinkedProfilesDTO));
+                using (Utf8StringWriter strWriter = new Utf8StringWriter())
                 {
-                    //string serial = serials.ElementAt(i);
-                    string serial = serialEnum.Current;
-                    string profile = linkedProfiles[serial];
-                    XmlElement link = linkedXdoc.CreateElement("MAC" + serial);
-                    link.InnerText = profile;
-                    Node.AppendChild(link);
+                    using XmlWriter xmlWriter = XmlWriter.Create(strWriter,
+                        new XmlWriterSettings()
+                        {
+                            Encoding = Encoding.UTF8,
+                            Indent = true,
+                        });
+
+                    // Write header explicitly
+                    //xmlWriter.WriteStartDocument();
+                    //xmlWriter.WriteProcessingInstruction("xml", "version=\"1.0\" encoding=\"utf-8\"");
+                    xmlWriter.WriteComment(string.Format(" Mac Address and Profile Linking Data. {0} ", DateTime.Now));
+                    xmlWriter.WriteWhitespace("\r\n");
+                    xmlWriter.WriteWhitespace("\r\n");
+
+                    // Write root element and children
+                    LinkedProfilesDTO dto = new LinkedProfilesDTO();
+                    dto.MapFrom(this);
+                    // Omit xmlns:xsi and xmlns:xsd from output
+                    serializer.Serialize(xmlWriter, dto,
+                        new XmlSerializerNamespaces(new[] { XmlQualifiedName.Empty }));
+                    xmlWriter.Flush();
+                    xmlWriter.Close();
+
+                    testStr = strWriter.ToString();
+                    //Trace.WriteLine("TEST OUTPUT");
+                    //Trace.WriteLine(testStr);
                 }
 
-                try { linkedXdoc.Save(m_linkedProfiles); }
-                catch (UnauthorizedAccessException) { AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_linkedProfiles, false); saved = false; }
+                try
+                {
+                    using (StreamWriter sw = new StreamWriter(output_path, false))
+                    {
+                        sw.Write(testStr);
+                    }
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_linkedProfiles, false);
+                    saved = false;
+                }
             }
             else
             {
                 saved = createLinkedProfiles();
-                saved = saved && SaveLinkedProfiles();
             }
 
             return saved;
+
+            //bool saved = true;
+            //if (File.Exists(m_linkedProfiles))
+            //{
+            //    XmlDocument linkedXdoc = new XmlDocument();
+            //    XmlNode Node;
+
+            //    Node = linkedXdoc.CreateXmlDeclaration("1.0", "utf-8", string.Empty);
+            //    linkedXdoc.AppendChild(Node);
+
+            //    Node = linkedXdoc.CreateComment(string.Format(" Mac Address and Profile Linking Data. {0} ", DateTime.Now));
+            //    linkedXdoc.AppendChild(Node);
+
+            //    Node = linkedXdoc.CreateWhitespace("\r\n");
+            //    linkedXdoc.AppendChild(Node);
+
+            //    Node = linkedXdoc.CreateNode(XmlNodeType.Element, "LinkedControllers", "");
+            //    linkedXdoc.AppendChild(Node);
+
+            //    Dictionary<string, string>.KeyCollection serials = linkedProfiles.Keys;
+            //    //for (int i = 0, itemCount = linkedProfiles.Count; i < itemCount; i++)
+            //    for (var serialEnum = serials.GetEnumerator(); serialEnum.MoveNext();)
+            //    {
+            //        //string serial = serials.ElementAt(i);
+            //        string serial = serialEnum.Current;
+            //        string profile = linkedProfiles[serial];
+            //        XmlElement link = linkedXdoc.CreateElement("MAC" + serial);
+            //        link.InnerText = profile;
+            //        Node.AppendChild(link);
+            //    }
+
+            //    try { linkedXdoc.Save(m_linkedProfiles); }
+            //    catch (UnauthorizedAccessException) { AppLogger.LogToGui("Unauthorized Access - Save failed to path: " + m_linkedProfiles, false); saved = false; }
+            //}
+            //else
+            //{
+            //    saved = createLinkedProfiles();
+            //    saved = saved && SaveLinkedProfiles();
+            //}
+
+            //return saved;
         }
 
         public bool createControllerConfigs()
@@ -7803,7 +8722,7 @@ namespace DS4Windows
             }
         }
 
-        private void UpdateDS4CKeyType(int deviceNum, string buttonName, bool shift, DS4KeyType keyType)
+        public void UpdateDS4CKeyType(int deviceNum, string buttonName, bool shift, DS4KeyType keyType)
         {
             DS4Controls dc;
             if (buttonName.StartsWith("bn"))
@@ -8828,13 +9747,29 @@ namespace DS4Windows
                 this.details = details.Split(' ')[0];
                 if (!string.IsNullOrEmpty(extras))
                 {
+                    extra = extras;
                     string[] exts = extras.Split('\n');
                     pressRelease = exts[0] == "Release";
-                    this.ucontrols = exts[1];
-                    string[] uctrls = exts[1].Split('/');
-                    foreach (string s in uctrls)
-                        uTrigger.Add(getDS4ControlsByName(s));
+                    HashSet<string> knownUnloadStyles = new HashSet<string>()
+                    {
+                        "Press", "Release",
+                    };
+
+                    if (!string.IsNullOrEmpty(exts[0]) &&
+                        knownUnloadStyles.Contains(exts[0]))
+                    {
+                        keyType |= DS4KeyType.Toggle;
+                    }
+
+                    if (!string.IsNullOrEmpty(exts[1]))
+                    {
+                        this.ucontrols = exts[1];
+                        string[] uctrls = exts[1].Split('/');
+                        foreach (string s in uctrls)
+                            uTrigger.Add(getDS4ControlsByName(s));
+                    }
                 }
+
                 if (details.Contains("Scan Code"))
                     keyType |= DS4KeyType.ScanCode;
             }
@@ -8857,6 +9792,8 @@ namespace DS4Windows
             else if (type == "Macro")
             {
                 typeID = ActionTypeId.Macro;
+                this.details = details;
+
                 string[] macs = details.Split('/');
                 foreach (string s in macs)
                 {
@@ -8864,20 +9801,27 @@ namespace DS4Windows
                     if (int.TryParse(s, out v))
                         macro.Add(v);
                 }
-                if (extras.Contains("Scan Code"))
-                    keyType |= DS4KeyType.ScanCode;
-                if (extras.Contains("RunOnRelease"))
-                    pressRelease = true;
-                if (extras.Contains("Sync"))
-                    synchronized = true;
-                if (extras.Contains("KeepKeyState"))
-                    keepKeyState = true;
-                if (extras.Contains("Repeat"))
-                    keyType |= DS4KeyType.RepeatMacro;
+
+                if (extras != string.Empty)
+                {
+                    extra = extras;
+
+                    if (extras.Contains("Scan Code"))
+                        keyType |= DS4KeyType.ScanCode;
+                    if (extras.Contains("RunOnRelease"))
+                        pressRelease = true;
+                    if (extras.Contains("Sync"))
+                        synchronized = true;
+                    if (extras.Contains("KeepKeyState"))
+                        keepKeyState = true;
+                    if (extras.Contains("Repeat"))
+                        keyType |= DS4KeyType.RepeatMacro;
+                }
             }
             else if (type == "DisconnectBT")
             {
                 typeID = ActionTypeId.DisconnectBT;
+                this.details = details;
             }
             else if (type == "BatteryCheck")
             {
@@ -8956,9 +9900,13 @@ namespace DS4Windows
 
                 case "PS": return DS4Controls.PS;
                 case "Mute": return DS4Controls.Mute;
+                case "Function Left": return DS4Controls.FnL;
+                case "Function Right": return DS4Controls.FnR;
+                case "Bottom Left Paddle": return DS4Controls.BLP;
+                case "Bottom Right Paddle": return DS4Controls.BRP;
                 case "Capture": return DS4Controls.Capture;
                 case "SideL": return DS4Controls.SideL;
-                case "SideR": return DS4Controls.SideL;
+                case "SideR": return DS4Controls.SideR;
                 case "Left Stick Left": return DS4Controls.LXNeg;
                 case "Left Stick Up": return DS4Controls.LYNeg;
                 case "Right Stick Left": return DS4Controls.RXNeg;

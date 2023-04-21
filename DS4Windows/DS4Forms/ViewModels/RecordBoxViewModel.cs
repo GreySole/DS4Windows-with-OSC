@@ -301,6 +301,28 @@ namespace DS4WinWPF.DS4Forms.ViewModels
                 macroSteps.Insert(appendIndex, item);
                 appendIndex++;
             }
+
+            // If recording and not using delays already, check action type
+            // and insert small wait period on Key ActDown. Needed
+            // for some apps so events are not skipped in an event queue
+            if (recording && !recordDelays &&
+                step.ActType == MacroStep.StepType.ActDown &&
+                step.OutputType == MacroStep.StepOutput.Key)
+            {
+                // 300 + WaitTime (ms)
+                MacroStep waitstep = new MacroStep(MacroStep.WAIT_OFFSET + 50, $"Wait 50ms",
+                    MacroStep.StepType.Wait, MacroStep.StepOutput.None);
+                item = new MacroStepItem(waitstep);
+                if (appendIndex == -1)
+                {
+                    macroSteps.Add(item);
+                }
+                else
+                {
+                    macroSteps.Insert(appendIndex, item);
+                    appendIndex++;
+                }
+            }
         }
 
         public void InsertMacroStep(int index, MacroStep step)

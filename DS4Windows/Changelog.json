@@ -1,9 +1,246 @@
 {
-  "latest_version": "3.1.10",
-  "latest_version_number_info": {"majorPart": 3, "minorPart": 1, "buildPart": 10},
-  "updated_at": "2022-11-07T02:41:13+0000",
+  "latest_version": "3.2.9",
+  "latest_version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 9},
+  "updated_at": "2023-03-07T16:16:55+0000",
   "changelog": {
     "versions": [
+    {
+      "version_str": "3.2.9",
+      "version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 9},
+      "base_header": "Version 3.2.9",
+      "release_date": "2023-03-07T16:16:55+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.2.9",
+          "log_text": ["* Fixed changing of Trigger Effect while switching profiles with DualSense controller",
+            "* Allow LSVerticalScale and RSVerticalScale to save values > 1.0. Contribution by **Katalysta**",
+            "* Updated Italian translation. Contribution by **MarkThat**",
+            "* Increased LS and RS Vertical Scale max to 4.0",
+            "* Check for string length from HidD_GetSerialNumberString call from possible invalid response from hardware",
+            "* Added extra locking for LoggerHolder",
+            "* DualSense Edge input support (FnL FnR BLP BRP). Contribution by **steffalon**",
+            "* Added subtype property for DualSenseDevice class",
+            "* Added COMException catching when adding hook for power events",
+            "* Removed message regarding Middle Mouse closing app in tray menu. Windows 11 no longer supports this at least right now",
+            "* Added DualShock 3 support using DsHidMini driver (SXS) or Sony Sixaxis driver. Contribution by **SunnyQeen**",
+            "* Added logging when reading of Actions.xml fails",
+            "* Changed processing of Delay tags for Actions.xml. Fixes some cases where recent DS4Windows no longer reads Special Action files from older versions",
+            "* Fixed outer bounds when using smoothing for 360 Gyro Steering.",
+            "* Fixed anti-dead zone interpretation for 360 Gyro Steering stick output. Applies to Xbox 360 and DS4 output (not VJoy)",
+            "* Added Playmax PS4 controller. Contribution by **nzgamer41**"],
+          "updated_at": "2023-03-07T16:16:55+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.2.8",
+      "version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 8},
+      "base_header": "Version 3.2.8",
+      "release_date": "2023-02-05T20:31:36+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.2.8",
+          "log_text": ["* Corrected list display of Press Key special action regarding Toggle status",
+            "* No longer enforce en-US values for Custom Bezier curve string",
+            "* Fixed saving of options for Macro special action. Model problem",
+            "* Check tray icon has been created before trying to show notification",
+            "* Fixed DS4KeyType check for shift modifier when multiple flags are used",
+            "* Ignore None KeyType flag for shift modifier",
+            "* Simplify shift modifier key type saving",
+            "* Fixed loading of Gyro Mouse Joystick trigger eval condition",
+            "* Added extra precautions when disconnecting from FakerInput",
+            "* Adding initial DualSense Edge support. Contribution by **dezerving**",
+            "* Updated zh-cn translatation. Contribution by **jyc001**",
+            "* Grab firmware info for DualSense controller"],
+          "updated_at": "2023-02-05T20:31:36+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.2.7",
+      "version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 7},
+      "base_header": "Version 3.2.7",
+      "release_date": "2023-01-19T05:18:21+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.2.7",
+          "log_text": ["* Fixed loading of Unload Trigger for Load Profile special action",
+            "* Fixed model for Press Key special action regarding Toggle status",
+            "* Changed Press Key special action keyType to reflect Toggle status. Was broken before version 3.2"],
+          "updated_at": "2023-01-19T05:18:21+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.2.6",
+      "version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 6},
+      "base_header": "Version 3.2.6",
+      "release_date": "2023-01-13T05:36:12+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.2.6",
+          "log_text": ["* Fixed key type and trigger assignments for shift actions. Fixed bindings for shift button and macro actions"],
+          "updated_at": "2023-01-13T05:36:12+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.2.5",
+      "version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 5},
+      "base_header": "Version 3.2.5",
+      "release_date": "2023-01-12T05:44:27+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.2.5",
+          "log_text": ["* Fixed some default values for app settings",
+            "* Extra app settings checks. Re-establish some app settings defaults",
+            "* Set AbsRegionDisplay to empty string by default"],
+          "updated_at": "2023-01-12T05:44:27+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.2.4",
+      "version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 4},
+      "base_header": "Version 3.2.4",
+      "release_date": "2023-01-11T05:31:31+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.2.4",
+          "log_text": ["* Fixed loading of Launch Program Special Actions arguments"],
+          "updated_at": "2023-01-11T05:31:31+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.2.3",
+      "version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 3},
+      "base_header": "Version 3.2.3",
+      "release_date": "2023-01-09T01:09:48+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.2.3",
+          "log_text": ["* Fixed saving and loading of Shift Modifier trigger"],
+          "updated_at": "2023-01-09T01:09:48+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.2.2",
+      "version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 2},
+      "base_header": "Version 3.2.2",
+      "release_date": "2023-01-08T00:02:51+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.2.2",
+          "log_text": ["* Fixed saving of Launch Program special action",
+            "* Fixed Macro and Press Key Special Actions"],
+          "updated_at": "2023-01-08T00:02:51+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.2.1",
+      "version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 1},
+      "base_header": "Version 3.2.1",
+      "release_date": "2023-01-07T05:53:15+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.2.1",
+          "log_text": ["* Fixed wait period offset for automatic added wait times in macro editor",
+            "* Fixed serializing of Special Actions",
+            "* Fixed saving of Special Actions to Actions.xml",
+            "* Fixed delay time usage for some Special Action types"],
+          "updated_at": "2023-01-07T05:53:15+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.2.0",
+      "version_number_info": {"majorPart": 3, "minorPart": 2, "buildPart": 0},
+      "base_header": "Version 3.2.0",
+      "release_date": "2023-01-05T19:58:58+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.2.0",
+          "log_text": ["* Migrate app settings and profile readers to use XmlSerializer DTO classes",
+            "* Small tweaks for JoyCon base init",
+            "* Tweaked Switch Pro init",
+            "* Fixed Gyro Mouse toggle profile setting",
+            "* Experimental support for JoyCon Charging Grip support",
+            "* Force cancel stalled IO operations when stopping input thread loop",
+            "* Reset DS4State while removing JoyCon device",
+            "* Added simple haptic dirty flag",
+            "* Tweaked hue changing for lightbar Rainbow mode",
+            "* Made SideL and SideR available as Gyro triggers",
+            "* Changed rainbow label. Value actually affects lightness level, not saturation",
+            "* Updated note regarding stick rotation setting",
+            "* Add extra macro wait periods if delays are not already in use. Tried to keep the old Jay2Kings behavior but it is time to change things",
+            "* Fixed device type set for JoyConControllerOptions instance",
+            "* Bump NLog from 5.1.0 to 5.1.1",
+            "* Updated references to Swedish locale assembly",
+            "* Bundle custom Nefarius.Utilities.DeviceManagement. Minimal build changes",
+            "* Fixed crash on updating tooltip if Windows Explorer is not running for some reason. Contribution by **V-Olk**",
+            "* Updated Russian translation. Contribution by **V-Olk**",
+            "* Fixed default value of UseLang in AppSettingsDTO"],
+          "updated_at": "2023-01-05T19:58:58+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.1.12",
+      "version_number_info": {"majorPart": 3, "minorPart": 1, "buildPart": 12},
+      "base_header": "Version 3.1.12",
+      "release_date": "2022-12-20T17:21:17+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.1.12",
+          "log_text": ["* Updated NuGet packages. H.NotifyIcon.Wpf, MdXaml, NLog, System.Management",
+            "* Moved some DualSense rumble settings into Profiles. Contribution by **Kanuan**",
+            "* Ignore invalid OscPacket that might come through",
+            "* Changed counter use for Hotplug routine",
+            "* Removed old DS4 BT output counter workaround. Was only needed when using the Control endpoint",
+            "* Fixed RS outer binding",
+            "* Fixed bad copy pasta for SideR control value in special actions"],
+          "updated_at": "2022-12-20T17:21:17+0000"
+        }
+      ]
+    },
+    {
+      "version_str": "3.1.11",
+      "version_number_info": {"majorPart": 3, "minorPart": 1, "buildPart": 11},
+      "base_header": "Version 3.1.11",
+      "release_date": "2022-11-27T05:34:04+0000",
+      "locales": [
+        {
+          "code": "en",
+          "header": "Version 3.1.11",
+          "log_text": ["* Fixed loading of language assemblies from Lang folder",
+            "* Update Traditional Chinese assembly. Contribution by **syaoran**",
+            "* Fixed snap to center Y axis coordinate for control abs mouse",
+            "* Tweaks to DS4 BT output support. Revert back to using output report 0x11",
+            "* Take payload length into account besides just array length. Strip 0xA0 data magic byte from output packet",
+            "* Added workflows for issue moderation automation. Contribution by **nefarius**",
+            "* Check current virtual desktop display bounds when restoring window position on startup",
+            "* Added Poast social link in About window",
+            "* Tweaked Switch Pro init routine. Increased initial USB delay, tweaked modeswitch command",
+            "* Removed use of old ControlService busThread. Utilize Dispatcher",
+            "* Fixed rsync ignore rules for default translation assemblies"],
+          "updated_at": "2022-11-27T05:34:04+0000"
+        }
+      ]
+    },
     {
       "version_str": "3.1.10",
       "version_number_info": {"majorPart": 3, "minorPart": 1, "buildPart": 10},

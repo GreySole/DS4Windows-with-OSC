@@ -716,20 +716,21 @@ namespace DS4Windows
         public static DateTime[] oldnowKeyAct = new DateTime[Global.MAX_DS4_CONTROLLER_COUNT] { DateTime.MinValue,
             DateTime.MinValue, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue };
 
-        private static DS4Controls[] shiftTriggerMapping = new DS4Controls[31]
+        private static DS4Controls[] shiftTriggerMapping = new DS4Controls[35]
         {
             DS4Controls.None, DS4Controls.Cross, DS4Controls.Circle, DS4Controls.Square,
             DS4Controls.Triangle, DS4Controls.Options, DS4Controls.Share, DS4Controls.DpadUp, DS4Controls.DpadDown,
             DS4Controls.DpadLeft, DS4Controls.DpadRight, DS4Controls.PS, DS4Controls.L1, DS4Controls.R1, DS4Controls.L2,
             DS4Controls.R2, DS4Controls.L3, DS4Controls.R3, DS4Controls.TouchLeft, DS4Controls.TouchUpper, DS4Controls.TouchMulti,
             DS4Controls.TouchRight, DS4Controls.GyroZNeg, DS4Controls.GyroZPos, DS4Controls.GyroXPos, DS4Controls.GyroXNeg,
-            DS4Controls.None, DS4Controls.Mute, DS4Controls.Capture, DS4Controls.SideL, DS4Controls.SideR
+            DS4Controls.None, DS4Controls.Mute, DS4Controls.FnL, DS4Controls.FnR, DS4Controls.BLP, DS4Controls.BRP,
+            DS4Controls.Capture, DS4Controls.SideL, DS4Controls.SideR
         };
 
         // Button to index mapping used for macrodone array. Not even sure this
         // is needed. This was originally made to replace a switch test used in the DS4ControlToInt method.
         // DS4Controls -> Macro input map index
-        private static int[] ds4ControlMapping = new int[48]
+        private static int[] ds4ControlMapping = new int[52]
         {
             0, // DS4Controls.None
             16, // DS4Controls.LXNeg
@@ -779,6 +780,10 @@ namespace DS4Windows
             45, // DS4Controls.Capture
             46, // DS4Controls.SideL
             47, // DS4Controls.SideR
+            48, // DS4Controls.FnL
+            49, // DS4Controls.FnR
+            50, // DS4Controls.BLP
+            51, // DS4Controls.BRP
         };
 
         // Define here to save some time processing.
@@ -6559,7 +6564,9 @@ namespace DS4Windows
                 {
                     double currentRate = 1.0 / currentDeviceState.elapsedTime; // Need to express poll time in Hz
                     OneEuroFilter wheelFilter = wheelFilters[device];
-                    result = (int)(wheelFilter.Filter(result, currentRate));
+                    result = (int)(wheelFilter.Filter(result * 1.0005, currentRate));
+                    // Perform clamp again
+                    result = Mapping.ClampInt(maxRangeLeft, result, maxRangeRight);
                 }
 
                 // Debug log output of SA sensor values
@@ -6596,9 +6603,22 @@ namespace DS4Windows
 
                         if (sxAntiDead > 0)
                         {
-                            sxAntiDead *= (outputAxisMax - outputAxisZero);
-                            if (result < 0) return (((result - maxRangeLeft) * (outputAxisZero - Convert.ToInt32(sxAntiDead) - (outputAxisMin))) / (0 - maxRangeLeft)) + (outputAxisMin);
-                            else return (((result - 0) * (outputAxisMax - (outputAxisZero + Convert.ToInt32(sxAntiDead)))) / (maxRangeRight - 0)) + (outputAxisZero + Convert.ToInt32(sxAntiDead));
+                            sxAntiDead *= ((result < 0 ? outputAxisMin : outputAxisMax) - outputAxisZero);
+                            int outputResult = 0;
+                            if (result < 0)
+                            {
+                                //(((result - maxRangeLeft) * (outputAxisZero - Convert.ToInt32(sxAntiDead) - (outputAxisMin))) / (0 - maxRangeLeft)) + (outputAxisMin);
+                                outputResult = (int)((outputAxisMin - (int)sxAntiDead) * ((result - 0) / (double)(maxRangeLeft - 0)) + (int)sxAntiDead);
+                            }
+                            else
+                            {
+                                //(((result - 0) * (outputAxisMax - (outputAxisZero + Convert.ToInt32(sxAntiDead)))) / (maxRangeRight - 0)) + (outputAxisZero + Convert.ToInt32(sxAntiDead));
+                                outputResult = (int)((outputAxisMax - (int)sxAntiDead) * ((result - 0) / (double)(maxRangeRight - 0)) + (int)sxAntiDead);
+                            }
+
+                            return outputResult;
+                            //if (result < 0) return (((result - maxRangeLeft) * (outputAxisZero - Convert.ToInt32(sxAntiDead) - (outputAxisMin))) / (0 - maxRangeLeft)) + (outputAxisMin);
+                            //else return (((result - 0) * (outputAxisMax - (outputAxisZero + Convert.ToInt32(sxAntiDead)))) / (maxRangeRight - 0)) + (outputAxisZero + Convert.ToInt32(sxAntiDead));
                         }
                         else
                         {

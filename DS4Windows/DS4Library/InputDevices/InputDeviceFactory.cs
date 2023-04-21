@@ -12,7 +12,9 @@ namespace DS4Windows.InputDevices
         SwitchPro,
         JoyConL,
         JoyConR,
+        JoyConGrip,
         DualSense,
+        DS3
     }
 
     public abstract class InputDeviceFactory
@@ -32,10 +34,14 @@ namespace DS4Windows.InputDevices
                     break;
                 case InputDeviceType.JoyConL:
                 case InputDeviceType.JoyConR:
+                case InputDeviceType.JoyConGrip:
                     temp = new JoyConDevice(hidDevice, disName, featureSet);
                     break;
                 case InputDeviceType.DualSense:
                     temp = new DualSenseDevice(hidDevice, disName, featureSet);
+                    break;
+                case InputDeviceType.DS3:
+                    temp = new DS3Device(hidDevice, disName, featureSet);
                     break;
             }
 
